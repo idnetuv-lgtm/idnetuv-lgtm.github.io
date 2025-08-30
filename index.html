@@ -103,7 +103,7 @@
       <label>Website Clicks:</label><input type="number" id="websiteClicks" value="0" min="0">
     </div>
     <div class="form-row" style="align-items:flex-start;">
-      <label>Notes:</label>
+      <label>Notes/captions:</label>
       <textarea id="contentNotes" rows="3" style="flex:2; padding:6px; border:1px solid #000; border-radius:4px;"></textarea>
     </div>
     <p id="engagementRate"><strong>Engagement Rate:</strong> 0.0%</p>
@@ -128,6 +128,7 @@
     </div>
 
     <div style="display:flex;gap:8px;align-items:center;margin:6px 0;">
+      <button type="button" onclick="resetTagCloud()">Reset Tag Cloud</button>
       <label style="margin:0;">Sort By:</label>
       <select id="sortField" style="padding:6px;border:1px solid #000;border-radius:4px;margin-left:8px;">
         <option value="date">Tanggal</option>
@@ -163,7 +164,6 @@
 
     <button onclick="exportCsvPosts()">Export CSV Postingan</button>
     <button onclick="exportCsvPostsFiltered()">Export CSV (Sesuai Filter)</button>
-    <button type="button" onclick="resetTagCloud()">Reset Tag Cloud</button>
 
     <table id="dataTable">
       <thead>

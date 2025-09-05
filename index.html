@@ -114,8 +114,7 @@
         Last edit: <span id="lastEdited" style="font-weight:normal;">-</span>
       </div>
     </div>
-    <button onclick="saveData()">Simpan Data</button>
-    <button onclick="document.getElementById('jsonFile').click()">Load JSON</button>
+    <button onclick="saveData()">Simpan Data</button> <button onclick="document.getElementById('jsonFile').click()">Load JSON</button>
   </div>
 
   <div class="content">
@@ -1176,5 +1175,530 @@
       window.selectTagFromTable = selectTagFromTable;
     })();
   </script>
+  <script>
+(function(){
+  // --- Helpers to compute totals from a given snapshot object ---
+  function computeTotalsOnSnapshot(snapshot, month) {
+    month = month || 'all';
+    const out = { posts:0, reach:0, impressions:0, likes:0, comments:0, shares:0, saves:0, websiteClicks:0 };
+    try {
+      const postsObj = snapshot && snapshot.posts ? snapshot.posts : {};
+      Object.keys(postsObj).forEach(d => {
+        if (!d) return;
+        if (month !== 'all' && !d.startsWith(month)) return;
+        const p = postsObj[d] || {};
+        const items = Array.isArray(p._items) ? p._items : [];
+        out.posts += items.length;
+        items.forEach(it => {
+          out.reach += +(it.reach || 0);
+          out.impressions += +(it.impressions || 0);
+          out.likes += +(it.likes || 0);
+          out.comments += +(it.comments || 0);
+          out.shares += +(it.shares || 0);
+          out.saves += +(it.saves || 0);
+          out.websiteClicks += +(it.websiteClicks || 0);
+        });
+      });
+    } catch(e){ console.error('computeTotalsOnSnapshot', e); }
+    return out;
+  }
+
+  // --- UI render for insight totals (below Export CSV Postingan) ---
+  function createInsightTotalsContainerIfMissing() {
+    if (document.getElementById('insightTotalsWrap')) return;
+    try {
+      // find the "Export CSV Postingan" button by exact text (fallback to first export button)
+      const btn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').trim().startsWith('Export CSV (Sesuai Filter)')) || Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').toLowerCase().includes('export csv post'));
+      if (!btn) {
+        // fallback: append under monthFilter
+        const mf = document.getElementById('monthFilter');
+        if (!mf) return;
+        const wrap = document.createElement('div');
+        wrap.id = 'insightTotalsWrap';
+        mf.parentNode.insertBefore(wrap, mf.nextSibling);
+        return;
+      }
+      const wrap = document.createElement('div');
+      wrap.id = 'insightTotalsWrap';
+      wrap.style.marginTop = '10px';
+      wrap.style.display = 'flex';
+      wrap.style.gap = '8px';
+      wrap.style.flexWrap = 'wrap';
+      wrap.style.alignItems = 'center';
+      btn.parentNode.insertBefore(wrap, btn.nextSibling);
+    } catch(e){ console.error('createInsightTotalsContainerIfMissing', e); }
+  }
+
+  function mkBadgeHTML(label, value) {
+    return `<div class="insight-badge" title="${label}" style="background:#f4f4f4;border:1px solid #ddd;padding:6px 10px;border-radius:10px;display:inline-flex;flex-direction:column;align-items:center;min-width:84px;">
+      <div style="font-size:13px;color:#333;font-weight:600;">${String(value)}</div>
+      <div style="font-size:11px;color:#666;margin-top:4px;">${label}</div>
+    </div>`;
+  }
+
+  function updateStatsUI() {
+    try {
+      createInsightTotalsContainerIfMissing();
+      const wrap = document.getElementById('insightTotalsWrap');
+      if (!wrap) return;
+      const month = document.getElementById('monthFilter')?.value || 'all';
+      const totals = computeTotalsOnSnapshot(window.dataStore || {}, month);
+      // build badges order: posts, reach, impressions, likes, comments, shares, saves, websiteClicks
+      const html = [
+        mkBadgeHTML('Postingan', totals.posts),
+        mkBadgeHTML('Reach', totals.reach),
+        mkBadgeHTML('Tayangan', totals.impressions),
+        mkBadgeHTML('Suka', totals.likes),
+        mkBadgeHTML('Komentar', totals.comments),
+        mkBadgeHTML('Bagikan', totals.shares),
+        mkBadgeHTML('Tersimpan', totals.saves),
+        mkBadgeHTML('Website Clicks', totals.websiteClicks)
+      ].join('');
+      wrap.innerHTML = html;
+    } catch(e){ console.error('updateStatsUI', e); }
+  }
+
+  // --- History Panel (collapsible / hide-show) ---
+  function createHistoryPanelIfMissing() {
+    if (document.getElementById('historyPanelWrap')) return;
+    try {
+      // Insert the history/undo UI at the bottom of the Insight Konten .content block
+      const insightSections = Array.from(document.querySelectorAll('.content'));
+      let target = null;
+      // Find the section whose first h3 contains 'Insight Konten'
+      for (const sec of insightSections) {
+        const h3 = sec.querySelector('h3');
+        if (h3 && (h3.textContent || '').trim().toLowerCase().includes('insight konten')) { target = sec; break; }
+      }
+      if (!target) target = document.body;
+
+      const panel = document.createElement('div');
+      panel.id = 'historyPanelWrap';
+      panel.style.marginTop = '12px';
+      panel.style.borderTop = '1px dashed #ccc';
+      panel.style.paddingTop = '8px';
+      panel.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="btn-undo" title="Undo">↶ Undo</button>
+            <button id="btn-redo" title="Redo">↷ Redo</button>
+            <button id="btn-save-snap" title="Save Snapshot">💾 Save Snapshot</button>
+            <button id="btn-clear-history" title="Clear History">🗑️ Clear History</button>
+          </div>
+          <div style="font-size:12px;color:#666;">History & Snapshot — gunakan Undo/Redo untuk kembali ke keadaan sebelumnya</div>
+        </div>
+        <div id="historyPanel" style="margin-top:8px; display:block; max-height:260px; overflow:auto; padding:6px; background:#fafafa; border-radius:6px; border:1px solid #eee;">
+          </div>
+      `;
+      target.appendChild(panel);
+
+      // wire basic buttons
+      document.getElementById('btn-undo')?.addEventListener('click', function(){ if (typeof window.undo === 'function') window.undo(); });
+      document.getElementById('btn-redo')?.addEventListener('click', function(){ if (typeof window.redo === 'function') window.redo(); });
+      document.getElementById('btn-save-snap')?.addEventListener('click', function(){ if (typeof window.pushHistory === 'function') window.pushHistory('manual'); });
+      document.getElementById('btn-clear-history')?.addEventListener('click', function(){
+        if (!confirm('Clear seluruh history undo/redo?')) return;
+        window._undoStack = [];
+        window._redoStack = [];
+        window._historyMeta = [];
+        updateHistoryPanel();
+        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
+      });
+    } catch(e){ console.error('createHistoryPanelIfMissing', e); }
+  }
+
+  function formatIsoShort(iso) {
+    if (!iso) return '-';
+    try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
+  }
+
+  // Render the history panel listing undo stack (chronological) and redo stack
+  function updateHistoryPanel() {
+    try {
+      createHistoryPanelIfMissing();
+      const container = document.getElementById('historyPanel');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // Build list from undo stack (older -> newest). Show index and timestamp + totals
+      const undo = Array.isArray(window._undoStack) ? window._undoStack : [];
+      const meta = Array.isArray(window._historyMeta) ? window._historyMeta : [];
+
+      const month = document.getElementById('monthFilter')?.value || 'all';
+
+      const makeEntry = (snap, idx, side) => {
+        const totals = window._computeTotalsOnSnapshot ? window._computeTotalsOnSnapshot(snap, month) : { posts:0, reach:0, impressions:0 };
+        const entry = document.createElement('div');
+        entry.style.display = 'flex';
+        entry.style.alignItems = 'center';
+        entry.style.justifyContent = 'space-between';
+        entry.style.padding = '6px';
+        entry.style.borderBottom = '1px dashed #eee';
+        entry.innerHTML = `
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div style="font-size:12px;color:#333;"><strong>${side === 'undo' ? 'U' : 'R'}#${idx}</strong></div>
+            <div style="font-size:12px;color:#666;">${formatIsoShort(meta[idx]?.ts || meta[idx]?.time || meta[idx]?.timestamp || meta[idx]?.ts || new Date().toISOString())}</div>
+            <div style="font-size:12px;color:#444;margin-left:8px;">Posts:${totals.posts} Reach:${totals.reach} Impr:${totals.impressions}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-restore" data-side="${side}" data-idx="${idx}">Restore</button>
+            <button class="btn-inspect" data-side="${side}" data-idx="${idx}">Inspect</button>
+          </div>
+        `;
+        return entry;
+      };
+
+      const uWrap = document.createElement('div');
+      uWrap.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Undo Stack (${undo.length})</div>`;
+      if (!undo.length) {
+        const n = document.createElement('div'); n.className='muted'; n.textContent = 'Tidak ada entry'; uWrap.appendChild(n);
+      } else {
+        // show last 30 entries most-recent-first for usability but allow restore by index
+        for (let i = undo.length - 1; i >= 0; i--) {
+          const entry = makeEntry(undo[i], i, 'undo');
+          uWrap.appendChild(entry);
+        }
+      }
+      container.appendChild(uWrap);
+
+      const redo = Array.isArray(window._redoStack) ? window._redoStack : [];
+      const rWrap = document.createElement('div');
+      rWrap.style.marginTop = '8px';
+      rWrap.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Redo Stack (${redo.length})</div>`;
+      if (!redo.length) {
+        const n = document.createElement('div'); n.className='muted'; n.textContent = 'Tidak ada entry'; rWrap.appendChild(n);
+      } else {
+        for (let i = 0; i < redo.length; i++) {
+          // redo indices map to positions after undoStack length
+          const metaIdx = (undo.length + i);
+          const entry = makeEntry(redo[i], metaIdx, 'redo');
+          rWrap.appendChild(entry);
+        }
+      }
+      container.appendChild(rWrap);
+
+      // wire buttons
+      container.querySelectorAll('.btn-restore').forEach(btn => {
+        btn.addEventListener('click', function(){
+          const side = this.getAttribute('data-side');
+          const idx = parseInt(this.getAttribute('data-idx'),10);
+          if (side === 'undo') {
+            // restore the chosen undo snapshot: set undo stack top to that index
+            if (isNaN(idx)) return;
+            // Move newest snapshots into redo stack until top is idx
+            while (window._undoStack.length - 1 > idx) {
+              window._redoStack.unshift(window._undoStack.pop());
+              window._historyMetaShifted = window._historyMeta.pop();
+            }
+            const toRestore = window._undoStack[window._undoStack.length - 1];
+            if (toRestore) {
+              restoreSnapshot(toRestore);
+              updateHistoryPanel();
+              try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
+            }
+          } else {
+            // redo side: compute redo index relative and pop from redo until that item is popped
+            const redoIdxRelative = idx - (window._undoStack.length);
+            if (redoIdxRelative < 0 || redoIdxRelative >= window._redoStack.length) return;
+            // shift redo items from front until we reach target
+            for (let i = 0; i <= redoIdxRelative; i++) {
+              const s = window._redoStack.shift();
+              window._undoStack.push(s);
+            }
+            const toRestore = window._undoStack[window._undoStack.length - 1];
+            if (toRestore) {
+              restoreSnapshot(toRestore);
+              updateHistoryPanel();
+              try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
+            }
+          }
+        });
+      });
+
+      container.querySelectorAll('.btn-inspect').forEach(btn => {
+        btn.addEventListener('click', function(){
+          const side = this.getAttribute('data-side');
+          const idx = parseInt(this.getAttribute('data-idx'),10);
+          let snap = null;
+          if (side === 'undo') snap = window._undoStack[idx];
+          else {
+            const redoIdxRelative = idx - (window._undoStack.length);
+            snap = window._redoStack[redoIdxRelative];
+          }
+          const w = window.open('', '_blank');
+          if (!w) return alert('Tidak dapat membuka jendela inspeksi (popup diblokir?)');
+          w.document.title = 'Snapshot Inspect';
+          w.document.body.style.fontFamily = 'monospace, monospace';
+          w.document.body.innerHTML = '<pre>' + escapeHtml(JSON.stringify(snap, null, 2)) + '</pre>';
+        });
+      });
+
+    } catch(e){ console.error('updateHistoryPanel', e); }
+  }
+
+  // safe escape HTML for inspect viewer
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(m){ return ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[m]; }); }
+
+  // core history/undo/redo implementation
+  (function historyCore(){
+    window._undoStack = window._undoStack || [];
+    window._redoStack = window._redoStack || [];
+    window._historyMeta = window._historyMeta || [];
+    const maxHistory = 60;
+
+    function deepClone(obj){
+      try { return (typeof structuredClone === 'function') ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)); }
+      catch(e){ return JSON.parse(JSON.stringify(obj)); }
+    }
+
+    // restore snapshot (full replace)
+    window.restoreSnapshot = function(snap){
+      try {
+        if (!snap) return;
+        window.dataStore = deepClone(snap);
+        // ensure normalized structures and UI refresh
+        if (typeof normalizePostsStructure === 'function') normalizePostsStructure();
+        if (typeof generateMonthOptions === 'function') generateMonthOptions();
+        if (typeof generateProfileMonthOptions === 'function') generateProfileMonthOptions();
+        if (typeof renderProfileInputs === 'function') renderProfileInputs();
+        if (typeof renderUsernameAreas === 'function') renderUsernameAreas();
+        if (typeof renderTableFiltered === 'function') renderTableFiltered();
+        if (typeof renderTagCloud === 'function') renderTagCloud();
+        if (typeof updateMonthlyReachDisplay === 'function') updateMonthlyReachDisplay();
+        if (typeof updateMonthlyImpressionsDisplay === 'function') updateMonthlyImpressionsDisplay();
+        // re-render posts list for currently selected date
+        const curDate = document.getElementById('dateInput')?.value;
+        if (curDate && typeof renderPostItemsForDate === 'function') renderPostItemsForDate(curDate);
+        // update global visuals
+        if (typeof updateStatsUI === 'function') updateStatsUI();
+        if (typeof updateHistoryPanel === 'function') updateHistoryPanel();
+        if (typeof showSaveNotification === 'function') showSaveNotification('Snapshot diterapkan');
+      } catch(e){ console.error('restoreSnapshot', e); }
+    };
+
+    // push a new snapshot (should be called after mutation)
+    window.pushHistory = function(label){
+      try {
+        const snap = deepClone(window.dataStore || {});
+        // if nothing in undo or last snapshot is different, push
+        const last = window._undoStack.length ? window._undoStack[window._undoStack.length - 1] : null;
+        const lastStr = last ? JSON.stringify(last) : null;
+        const curStr = JSON.stringify(snap);
+        if (lastStr === curStr && window._undoStack.length) {
+          // identical to last snapshot -> update timestamp instead
+          window._historyMeta[window._historyMeta.length - 1] = { ts: new Date().toISOString(), label: label || 'auto' };
+        } else {
+          window._undoStack.push(snap);
+          window._historyMeta.push({ ts: new Date().toISOString(), label: label || 'auto' });
+          // trim if exceed max
+          while (window._undoStack.length > maxHistory) {
+            window._undoStack.shift();
+            window._historyMeta.shift();
+          }
+          // clear redo on new push
+          window._redoStack = [];
+        }
+        updateHistoryPanel();
+        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
+      } catch(e){ console.error('pushHistory', e); }
+    };
+
+    // undo: move last snapshot to redo and restore previous
+    window.undo = function(){
+      try {
+        if (!window._undoStack || window._undoStack.length < 2) { alert('Tidak ada yang dapat di-undo'); return; }
+        const last = window._undoStack.pop();
+        const lastMeta = window._historyMeta.pop();
+        window._redoStack.unshift(last);
+        // Note: we keep a mirror of meta for redo as well (put meta at front)
+        window._redoMeta = window._redoMeta || [];
+        window._redoMeta.unshift(lastMeta);
+        const toRestore = window._undoStack[window._undoStack.length - 1];
+        restoreSnapshot(toRestore);
+        updateHistoryPanel();
+        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
+      } catch(e){ console.error('undo', e); alert('Undo gagal'); }
+    };
+
+    // redo: take first redo snapshot and apply it (push to undo)
+    window.redo = function(){
+      try {
+        if (!window._redoStack || window._redoStack.length === 0) { alert('Tidak ada yang dapat di-redo'); return; }
+        const snap = window._redoStack.shift();
+        const meta = (window._redoMeta && window._redoMeta.length) ? window._redoMeta.shift() : { ts: new Date().toISOString(), label: 'redo' };
+        window._undoStack.push(snap);
+        window._historyMeta.push(meta);
+        restoreSnapshot(snap);
+        updateHistoryPanel();
+        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
+      } catch(e){ console.error('redo', e); alert('Redo gagal'); }
+    };
+
+    // clear history helper
+    window.clearHistory = function(){
+      window._undoStack = [];
+      window._redoStack = [];
+      window._historyMeta = [];
+      updateHistoryPanel();
+    };
+
+    // expose for debug
+    window._deepClone = deepClone;
+
+  })();
+
+  // --- Wrap pushHistory to record timestamps in parallel array (legacy compatibility removed) ---
+  (function wrapPushHistory(){
+    try {
+      // ensure initial baseline exists
+      if (!Array.isArray(window._undoStack) || window._undoStack.length === 0) {
+        try { window.pushHistory('initial'); } catch(e){}
+      }
+    } catch(e){ console.error('wrapPushHistory', e); }
+  })();
+
+  // --- Wrap undo/redo to refresh panel after operation --- (already wired to functions above)
+  (function wrapUndoRedo(){
+    try {
+      // UI buttons are already wired in createHistoryPanelIfMissing
+      // ensure updateHistoryPanel runs when undo/redo called (already inside functions)
+    } catch(e){ console.error('wrapUndoRedo', e); }
+  })();
+
+  // --- Wrap mutator functions to refresh stats & history panel after they run ---
+  (function wrapMutators(){
+    const names = ['saveData','addPostItem','deleteData','deletePostItem','loadJson','saveProfileSnapshot','deleteProfileSnapshot'];
+    names.forEach(n => {
+      try {
+        const orig = window[n];
+        if (typeof orig === 'function') {
+          window[n] = function(...args){
+            // call original
+            const res = orig.apply(this, args);
+            try {
+              // push history snapshot after mutation; use a short timeout to ensure any DOM reads are settled
+              setTimeout(function(){ try { window.pushHistory(n); } catch(e){ console.error('pushHistory after ' + n, e); } }, 10);
+            } catch(e){ console.error('after wrap ' + n, e); }
+            return res;
+          };
+        }
+      } catch(e){ /* ignore */ }
+    });
+  })();
+  
+  // ensure history UI created and initial snapshot present on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    createHistoryPanelIfMissing();
+    if (!window._undoStack || window._undoStack.length === 0) window.pushHistory('initial');
+    updateHistoryPanel();
+    updateStatsUI();
+    // update when monthFilter changed
+    document.getElementById('monthFilter')?.addEventListener('change', function(){ updateStatsUI(); updateHistoryPanel(); });
+
+    // keyboard shortcuts for undo/redo:
+    // - Ctrl/Cmd+Z => undo
+    // - Ctrl/Cmd+Y OR Ctrl/Cmd+Shift+Z => redo
+    function handleHistoryKeyboard(e){
+      try {
+        const mod = e.ctrlKey || e.metaKey;
+        if (!mod) return;
+        const key = (e.key || '').toLowerCase();
+        if (key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          if (typeof window.undo === 'function') window.undo();
+        } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+          e.preventDefault();
+          if (typeof window.redo === 'function') window.redo();
+        }
+      } catch(err){ console.error('history keyboard handler', err); }
+    }
+    // Attach once to document
+    document.addEventListener('keydown', handleHistoryKeyboard);
+
+  } catch(e){ console.error('history/stats init', e); }
+});
+
+})();
+</script>
+<script>
+(function(){
+  // Add a simple show/hide toggle for the history panel without modifying existing markup.
+  function initHistoryToggle(){
+    try {
+      // ensure panel exists; if creation function is available, try to create if missing
+      if (!document.getElementById('historyPanel')) {
+        if (typeof createHistoryPanelIfMissing === 'function') {
+          try { createHistoryPanelIfMissing(); } catch(e){ /* ignore */ }
+        }
+      }
+
+      const content = document.getElementById('historyPanel');
+      const wrap = document.getElementById('historyPanelWrap') || document.getElementById('historyPanel')?.parentElement;
+      if (!wrap || !content) return;
+
+      // find header area (first child with buttons created by createHistoryPanelIfMissing)
+      let header = wrap.querySelector('div');
+      if (!header) header = wrap;
+
+      // avoid adding duplicate toggle
+      if (document.getElementById('historyPanelToggle')) return;
+
+      const btn = document.createElement('button');
+      btn.id = 'historyPanelToggle';
+      btn.type = 'button';
+      btn.style.marginLeft = '8px';
+      btn.style.padding = '6px 10px';
+      btn.style.borderRadius = '6px';
+      btn.style.border = '1px solid #ccc';
+      btn.style.background = '#375a7c';
+      btn.style.cursor = 'pointer';
+      btn.style.fontSize = '13px';
+
+      // initial state from localStorage (default: visible)
+      const saved = localStorage.getItem('historyPanelVisible');
+      let visible = saved === null ? true : (saved === 'true');
+
+      function applyState(){
+        content.style.display = visible ? 'block' : 'none';
+        btn.textContent = visible ? 'Hide History' : 'Show History';
+        btn.setAttribute('aria-expanded', String(visible));
+        localStorage.setItem('historyPanelVisible', String(visible));
+        // when showing, refresh contents
+        if (visible && typeof updateHistoryPanel === 'function') {
+          try { updateHistoryPanel(); } catch(e){/* ignore */ }
+        }
+      }
+
+      btn.addEventListener('click', function(){
+        visible = !visible;
+        applyState();
+      });
+
+      // insert button into header; try to place at start of header controls
+      // if header contains a control container, append; otherwise append to header
+      try {
+        const controls = header.querySelector('div');
+        if (controls && controls.parentElement === header) {
+          // place toggle into the left controls group (if exists)
+          controls.appendChild(btn);
+        } else {
+          header.appendChild(btn);
+        }
+      } catch(e){
+        header.appendChild(btn);
+      }
+
+      applyState();
+    } catch(err){
+      // fail silently
+      console.error('history toggle init error', err);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initHistoryToggle);
+  else initHistoryToggle();
+})();
+</script>
 </body>
 </html>

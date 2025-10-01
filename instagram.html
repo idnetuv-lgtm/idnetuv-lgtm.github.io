@@ -35,6 +35,32 @@
     .post-item .btn-small { background:transparent; color:inherit; border:none; cursor:pointer; padding:2px 6px; font-size:12px; }
     .post-add { display:inline-flex; gap:8px; align-items:center; }
     .inline-input { padding:6px; border:1px solid #000; border-radius:4px; }
+
+    /* Edit Modal Styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: #fafafa;
+      padding: 25px;
+      border-radius: 8px;
+      border: 1px solid #000;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-content .form-row { flex-wrap: wrap; }
+    .modal-content .form-row label { margin-bottom: 5px; }
+    .modal-content .form-row input, .modal-content .form-row textarea { width: 100%; box-sizing: border-box; }
   </style>
 </head>
 <body>
@@ -239,6 +265,45 @@
   </ul>
 
   <canvas id="profileChart"></canvas>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Ubah Data Postingan</h3>
+      <input type="hidden" id="editToken">
+      <div class="form-row">
+        <label for="editDate">Tanggal:</label>
+        <input type="date" id="editDate">
+      </div>
+      <div class="form-row">
+        <label for="editTitle">Judul Post:</label>
+        <input type="text" id="editTitle" placeholder="Judul post (opsional)">
+      </div>
+      <div class="form-row">
+        <label for="editLink">Tautan:</label>
+        <input type="text" id="editLink">
+      </div>
+      <div class="form-row"><label for="editReach">Reach:</label><input type="number" id="editReach"></div>
+      <div class="form-row"><label for="editImpressions">Tayangan:</label><input type="number" id="editImpressions"></div>
+      <div class="form-row"><label for="editLikes">Suka:</label><input type="number" id="editLikes"></div>
+      <div class="form-row"><label for="editComments">Komentar:</label><input type="number" id="editComments"></div>
+      <div class="form-row"><label for="editShares">Bagikan:</label><input type="number" id="editShares"></div>
+      <div class="form-row"><label for="editSaves">Tersimpan:</label><input type="number" id="editSaves"></div>
+      <div class="form-row"><label for="editVisit">Kunjungan Profil:</label><input type="number" id="editVisit"></div>
+      <div class="form-row"><label for="editContentTag">Tag:</label><input type="text" id="editContentTag"></div>
+      <div class="form-row"><label for="editWebsiteClicks">Website Clicks:</label><input type="number" id="editWebsiteClicks"></div>
+      <div class="form-row" style="align-items:flex-start;">
+        <label for="editContentNotes">Notes/captions:</label>
+        <textarea id="editContentNotes" rows="4"></textarea>
+      </div>
+      <p id="editEngagementRate"><strong>Engagement Rate:</strong> 0.0%</p>
+      <div style="text-align: right;">
+        <button type="button" onclick="closeEditModal()">Batal</button>
+        <button type="button" onclick="saveEditData()">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
+
   <div style="display:flex; justify-content:center; align-items:center; margin:14px 0;"></div>
   <span style="font-size:11px;color:rgba(0, 0, 0, 0.726);font-weight:normal;opacity:0.6;user-select:none;pointer-events:none;">Created by Arghi</span>
 
@@ -729,6 +794,7 @@
         renderProfileInputs();
         updateMonthlyReachDisplay();
         updateMonthlyImpressionsDisplay();
+        updateStatsUI(); // Panggil pembaruan statistik
         renderTagCloud();
         updateLastEditedDisplay(new Date().toISOString());
 
@@ -911,18 +977,42 @@
       // edit/delete functions (tokens are date||idx)
       function editData(token){
         const parts = String(token||'').split('||');
-        const date = parts[0];
-        const idx = parts.length>1 ? parseInt(parts[1],10) : 0;
-        if (!date || !dataStore.posts[date]) return alert("Data tidak ditemukan untuk " + token);
-        document.getElementById("dateInput").value = date;
-        renderPostItemsForDate(date);
-        const sel = document.getElementById("postItemsList");
-        if (sel) {
-          window.currentPostIndex = idx;
-          renderPostItemsForDate(date);
+        const originalDate = parts[0];
+        const idx = parseInt(parts[1], 10);
+        if (!originalDate || !dataStore.posts[originalDate] || !dataStore.posts[originalDate]._items[idx]) {
+          return alert("Data tidak ditemukan untuk " + token);
         }
-        populateFormFromSelected(date, idx);
-        alert("Data dimuat untuk diedit: " + token);
+        const data = dataStore.posts[originalDate]._items[idx];
+
+        document.getElementById('editToken').value = token;
+        document.getElementById('editDate').value = originalDate;
+        document.getElementById('editTitle').value = data.title || '';
+        document.getElementById('editLink').value = data.link || '';
+        document.getElementById('editReach').value = data.reach || 0;
+        document.getElementById('editImpressions').value = data.impressions || 0;
+        document.getElementById('editLikes').value = data.likes || 0;
+        document.getElementById('editComments').value = data.comments || 0;
+        document.getElementById('editShares').value = data.shares || 0;
+        document.getElementById('editSaves').value = data.saves || 0;
+        document.getElementById('editVisit').value = data.visit || 0;
+        document.getElementById('editContentTag').value = (data.tags || []).join(', ');
+        document.getElementById('editWebsiteClicks').value = data.websiteClicks || 0;
+        document.getElementById('editContentNotes').value = data.notes || '';
+
+        document.getElementById('editModal').style.display = 'flex';
+        updateEditEngagement(); // Panggil kalkulasi engagement saat modal dibuka
+      }
+      window.editData = editData;
+
+      // Fungsi untuk menghitung engagement rate di dalam modal edit
+      function updateEditEngagement() {
+        const reach = +document.getElementById('editReach').value || 0;
+        const likes = +document.getElementById('editLikes').value || 0;
+        const comments = +document.getElementById('editComments').value || 0;
+        const shares = +document.getElementById('editShares').value || 0;
+        const saves = +document.getElementById('editSaves').value || 0;
+        const er = reach > 0 ? ((likes + comments + shares + saves) / reach) * 100 : 0;
+        document.getElementById('editEngagementRate').innerHTML = `<strong>Engagement Rate:</strong> ${er.toFixed(1)}%`;
       }
       window.editData = editData;
 
@@ -940,11 +1030,83 @@
         renderTableFiltered();
         updateMonthlyReachDisplay();
         updateMonthlyImpressionsDisplay();
+        updateStatsUI(); // Panggil pembaruan statistik
         renderTagCloud();
         // Update post items list if current date matches
         if (document.getElementById('dateInput')?.value === date) renderPostItemsForDate(date);
       }
       window.deleteData = deleteData;
+
+      // Fungsi baru untuk menambahkan item post dengan data yang sudah ada
+      function addPostItemWithData(date, data) {
+        if (!date) {
+          alert("Tanggal baru tidak valid untuk menyimpan data.");
+          return;
+        }
+        if (!window.dataStore.posts[date]) {
+          window.dataStore.posts[date] = { _items: [] };
+        }
+        if (!Array.isArray(window.dataStore.posts[date]._items)) {
+          window.dataStore.posts[date]._items = [];
+        }
+        window.dataStore.posts[date]._items.push(normalizeItem(data));
+      }
+
+      function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+      }
+      window.closeEditModal = closeEditModal;
+
+      function saveEditData() {
+        const token = document.getElementById('editToken').value;
+        const parts = token.split('||');
+        const originalDate = parts[0];
+        const idx = parseInt(parts[1], 10);
+
+        if (!originalDate || !dataStore.posts[originalDate] || dataStore.posts[originalDate]._items[idx] === undefined) {
+          alert('Error: Data asli tidak ditemukan untuk disimpan.');
+          return;
+        }
+
+        const newDate = document.getElementById('editDate').value;
+        const reach = +document.getElementById('editReach').value || 0;
+        const likes = +document.getElementById('editLikes').value || 0;
+        const comments = +document.getElementById('editComments').value || 0;
+        const shares = +document.getElementById('editShares').value || 0;
+        const saves = +document.getElementById('editSaves').value || 0;
+
+        const editedData = {
+          title: document.getElementById('editTitle').value.trim(),
+          link: document.getElementById('editLink').value,
+          reach: reach,
+          impressions: +document.getElementById('editImpressions').value || 0,
+          likes: likes,
+          comments: comments,
+          shares: shares,
+          saves: saves,
+          visit: +document.getElementById('editVisit').value || 0,
+          tag: document.getElementById('editContentTag').value,
+          tags: parseTagsFromString(document.getElementById('editContentTag').value),
+          websiteClicks: +document.getElementById('editWebsiteClicks').value || 0,
+          notes: document.getElementById('editContentNotes').value,
+          engagement: reach > 0 ? ((likes + comments + shares + saves) / reach) * 100 : 0,
+          lastEdited: new Date().toISOString()
+        };
+
+        // Hapus data lama dan tambahkan data baru (menangani perubahan tanggal)
+        deletePostItem(originalDate, idx);
+        addPostItemWithData(newDate, editedData);
+
+        // Simpan ke localStorage dan perbarui UI
+        localStorage.setItem('instagram_insight_data', JSON.stringify(window.dataStore));
+        renderTableFiltered();
+        renderTagCloud();
+        generateMonthOptions();
+        updateStatsUI(); // Panggil pembaruan statistik
+        closeEditModal();
+        showSaveNotification('Data berhasil diperbarui!');
+      }
+      window.saveEditData = saveEditData;
 
       // export/import
       function exportJson(){
@@ -992,6 +1154,7 @@
             renderUsernameAreas();
             updateMonthlyReachDisplay();
             updateMonthlyImpressionsDisplay();
+            updateStatsUI(); // Panggil pembaruan statistik
             renderTagCloud();
             alert("Data JSON berhasil dimuat! (" + Object.keys(dataStore.posts || {}).length + " tanggal, " + Object.keys(dataStore.profileSnapshots || {}).length + " snapshot)");
           } catch(err){
@@ -1114,6 +1277,42 @@
 
       // wire events on DOMContentLoaded
       document.addEventListener('DOMContentLoaded', function(){
+        // --- SCRIPT UNTUK MEMBACA DATA DARI LOCALSTORAGE ---
+        const APP_DATA_KEY = 'appData';
+ 
+        const loadCentralizedData = () => {
+            try {
+                const appDataString = localStorage.getItem(APP_DATA_KEY);
+                if (appDataString) {
+                    const appData = JSON.parse(appDataString);
+                    if (appData && appData.instagram) {
+                        console.log('Memuat data Instagram dari data terpusat...');
+                        if (appData.instagram.profile) window.dataStore.profile = appData.instagram.profile;
+                        if (appData.instagram.posts) window.dataStore.posts = appData.instagram.posts;
+                        if (appData.instagram.profileSnapshots) window.dataStore.profileSnapshots = appData.instagram.profileSnapshots;
+                        
+                        normalizePostsStructure();
+                        renderProfileInputs();
+                        renderTableFiltered();
+                        renderTagCloud();
+                        alert('Data Instagram berhasil dimuat dari data terpusat.');
+                    }
+                }
+            } catch (error) {
+                console.error('Gagal memuat data terpusat:', error);
+            }
+        };
+ 
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'newDataAvailable' && event.newValue === 'true') {
+                loadCentralizedData();
+            }
+        });
+ 
+        if (localStorage.getItem('newDataAvailable') === 'true') {
+            loadCentralizedData();
+        }
+        // --- AKHIR SCRIPT ---
         // inputs
         document.getElementById('dateInput')?.addEventListener('change', handleDateChange);
         ["link","reach","impressions","likes","comments","shares","saves","contentTag","contentNotes","websiteClicks","visit","newPostTitle"].forEach(id=>{
@@ -1134,6 +1333,12 @@
 
         document.getElementById('jsonFile')?.addEventListener('change', loadJson);
 
+        // Tambahkan event listener untuk input di modal edit
+        ['editReach', 'editLikes', 'editComments', 'editShares', 'editSaves'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('input', updateEditEngagement);
+        });
+
         initCompactObserver();
 
         // initialize UI from dataStore
@@ -1145,6 +1350,7 @@
         renderTableFiltered();
         updateMonthlyReachDisplay();
         updateMonthlyImpressionsDisplay();
+        updateStatsUI(); // Panggil pembaruan statistik
         renderTagCloud();
       });
 
@@ -1176,6 +1382,62 @@
       // expose updateProfile so inline onclick="updateProfile()" works
       window.updateProfile = updateProfile;
     })();
+  </script>
+  <script>
+    // --- Helpers to compute totals from a given snapshot object ---
+    function computeTotalsOnSnapshot(snapshot, month) {
+      month = month || 'all';
+      const out = { posts:0, reach:0, impressions:0, likes:0, comments:0, shares:0, saves:0, websiteClicks:0 };
+      try {
+        const postsObj = snapshot && snapshot.posts ? snapshot.posts : {};
+        Object.keys(postsObj).forEach(d => {
+          if (!d) return;
+          if (month !== 'all' && !d.startsWith(month)) return;
+          const p = postsObj[d] || {};
+          const items = Array.isArray(p._items) ? p._items : [];
+          out.posts += items.length;
+          items.forEach(it => {
+            out.reach += +(it.reach || 0);
+            out.impressions += +(it.impressions || 0);
+            out.likes += +(it.likes || 0);
+            out.comments += +(it.comments || 0);
+            out.shares += +(it.shares || 0);
+            out.saves += +(it.saves || 0);
+            out.websiteClicks += +(it.websiteClicks || 0);
+          });
+        });
+      } catch(e){ console.error('computeTotalsOnSnapshot', e); }
+      return out;
+    }
+
+    // --- UI render for insight totals (below Export CSV Postingan) ---
+    function createInsightTotalsContainerIfMissing() {
+      if (document.getElementById('insightTotalsWrap')) return;
+      try {
+        const btn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').trim().startsWith('Export CSV (Sesuai Filter)')) || Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').toLowerCase().includes('export csv post'));
+        if (!btn) return;
+        const wrap = document.createElement('div');
+        wrap.id = 'insightTotalsWrap';
+        wrap.style.marginTop = '10px';
+        wrap.style.display = 'flex';
+        wrap.style.gap = '8px';
+        wrap.style.flexWrap = 'wrap';
+        wrap.style.alignItems = 'center';
+        btn.parentNode.insertBefore(wrap, btn.nextSibling);
+      } catch(e){ console.error('createInsightTotalsContainerIfMissing', e); }
+    }
+
+    function mkBadgeHTML(label, value) {
+      return `<div class="insight-badge" title="${label}" style="background:#f4f4f4;border:1px solid #ddd;padding:6px 10px;border-radius:10px;display:inline-flex;flex-direction:column;align-items:center;min-width:84px;">
+        <div style="font-size:13px;color:#333;font-weight:600;">${String(value)}</div>
+        <div style="font-size:11px;color:#666;margin-top:4px;">${label}</div>
+      </div>`;
+    }
+
+    window.updateStatsUI = function() {
+      // This function is now global
+      // ... (The rest of the updateStatsUI function will be moved here)
+    }
   </script>
   <script>
 (function(){
@@ -1238,7 +1500,7 @@
     </div>`;
   }
 
-  function updateStatsUI() {
+  window.updateStatsUI = function() {
     try {
       createInsightTotalsContainerIfMissing();
       const wrap = document.getElementById('insightTotalsWrap');

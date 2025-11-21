@@ -85,6 +85,14 @@
     <div class="form-row">
       <label>Tanggal:</label> <input type="date" id="dateInput" onchange="handleDateChange()">
     </div>
+    <div id="extensionImportSection" class="form-row" style="align-items:flex-start; border-top: 1px dashed #ccc; padding-top: 10px; margin-top: 10px;">
+      <label for="extensionDataPaste">Import Data from Extension:</label>
+      <div style="flex:2;">
+        <textarea id="extensionDataPaste" rows="5" style="width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #000; border-radius: 4px;" placeholder="Paste data insight mentah dari ekstensi di sini..."></textarea>
+        <button type="button" onclick="importFromExtension()" style="margin-top: 8px;">Import Data</button>
+        <p class="muted" style="margin-top: 5px;">Copy dari data Ads yang paling baru. Paste data yang disalin dari popup ekstensi untuk mengisi form secara otomatis.</p>
+      </div>
+    </div>
     <!-- rewritten Post (hari ini) UI -->
     <div class="form-row" style="align-items:flex-start;">
       <label>Post (hari ini):</label>
@@ -108,6 +116,9 @@
       <label>Tayangan (Impressions):</label><input type="number" id="impressions" value="0">
     </div>
     <div class="form-row">
+      <label>Interaksi Postingan:</label><input type="number" id="postInteractions" value="0" min="0">
+    </div>
+    <div class="form-row">
       <label>Suka:</label><input type="number" id="likes" value="0">
     </div>
     <div class="form-row">
@@ -120,14 +131,35 @@
       <label>Tersimpan:</label><input type="number" id="saves" value="0">
     </div>
     <div class="form-row">
-      <label>Kunjungan Profil:</label><input type="number" id="visit" value="0" min="0">
+      <label>Interaksi Reels:</label><input type="number" id="reelsInteractions" value="0" min="0">
     </div>
     <div class="form-row">
       <label>Tag / Jenis Konten:</label><input type="text" id="contentTag" placeholder="mis. Reels, #promo, carousel">
     </div>
-    <div class="form-row">
-      <label>Website Clicks:</label><input type="number" id="websiteClicks" value="0" min="0">
+
+    <!-- New Detailed Insights Section -->
+    <div class="content" style="margin-top: 15px; padding-top: 0;">
+      <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('hidden')">▼ Detailed Insights (Optional)</div>
+      <div id="detailedInsights" class="hidden" style="padding-top: 10px;">
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+        <h4>Aktivitas Profil</h4>
+        <div class="form-row"><label>Total Aktivitas Profil:</label><input type="number" id="profileActivity" value="0"></div>
+        <div class="form-row"><label>Kunjungan Profil:</label><input type="number" id="profileVisits" value="0"></div>
+        <div class="form-row"><label>Follows:</label><input type="number" id="follows" value="0"></div>
+        <div class="form-row"><label>Ketukan Tautan Eksternal:</label><input type="number" id="externalLinkTaps" value="0"></div>
+        <div class="form-row"><label>Ketukan Alamat Bisnis:</label><input type="number" id="businessAddressTaps" value="0"></div>
+        <div class="form-row"><label>Percakapan Pesan Dimulai:</label><input type="number" id="messagingConversationsStarted" value="0"></div>
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+        <h4>Views Breakdown</h4>
+        <div class="form-row"><label>From Followers (%):</label><input type="number" id="viewFollowersPercentage" value="0" step="0.1"></div>
+        <div class="form-row"><label>From Non-followers (%):</label><input type="number" id="viewNonFollowersPercentage" value="0" step="0.1"></div>
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+        <h4>Interactions Breakdown</h4>
+        <div class="form-row"><label>From Followers (%):</label><input type="number" id="intFollowersPercentage" value="0" step="0.1"></div>
+        <div class="form-row"><label>From Non-followers (%):</label><input type="number" id="intNonFollowersPercentage" value="0" step="0.1"></div>
+      </div>
     </div>
+
     <div class="form-row" style="align-items:flex-start;">
       <label>Notes/captions:</label>
       <textarea id="contentNotes" rows="3" style="flex:2; padding:6px; border:1px solid #000; border-radius:4px;"></textarea>
@@ -199,8 +231,8 @@
           <th>Tayangan</th>
           <th>Suka</th>
           <th>Komentar</th>
-          <th>Bagikan</th>
           <th>Tersimpan</th>
+          <th>Post Interactions</th>
           <th>Tingkat Interaksi %</th>
           <th>Aksi</th>
         </tr>
@@ -275,6 +307,13 @@
         <label for="editDate">Tanggal:</label>
         <input type="date" id="editDate">
       </div>
+      <div id="editExtensionImportSection" class="form-row" style="align-items:flex-start; border-top: 1px dashed #ccc; padding-top: 10px; margin-top: 10px;">
+        <label for="editExtensionDataPaste">Import Data from Extension:</label>
+        <div style="flex:2;">
+          <textarea id="editExtensionDataPaste" rows="5" style="width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #000; border-radius: 4px;" placeholder="Paste data insight mentah dari ekstensi di sini..."></textarea>
+          <button type="button" onclick="importFromExtension('edit')" style="margin-top: 8px;">Import Data</button>
+        </div>
+      </div>
       <div class="form-row">
         <label for="editTitle">Judul Post:</label>
         <input type="text" id="editTitle" placeholder="Judul post (opsional)">
@@ -285,14 +324,36 @@
       </div>
       <div class="form-row"><label for="editReach">Reach:</label><input type="number" id="editReach"></div>
       <div class="form-row"><label for="editImpressions">Tayangan:</label><input type="number" id="editImpressions"></div>
+      <div class="form-row"><label for="editPostInteractions">Interaksi Postingan:</label><input type="number" id="editPostInteractions"></div>
       <div class="form-row"><label for="editLikes">Suka:</label><input type="number" id="editLikes"></div>
       <div class="form-row"><label for="editComments">Komentar:</label><input type="number" id="editComments"></div>
       <div class="form-row"><label for="editShares">Bagikan:</label><input type="number" id="editShares"></div>
       <div class="form-row"><label for="editSaves">Tersimpan:</label><input type="number" id="editSaves"></div>
-      <div class="form-row"><label for="editVisit">Kunjungan Profil:</label><input type="number" id="editVisit"></div>
+      <div class="form-row"><label for="editReelsInteractions">Interaksi Reels:</label><input type="number" id="editReelsInteractions"></div>
       <div class="form-row"><label for="editContentTag">Tag:</label><input type="text" id="editContentTag"></div>
-      <div class="form-row"><label for="editWebsiteClicks">Website Clicks:</label><input type="number" id="editWebsiteClicks"></div>
-      <div class="form-row" style="align-items:flex-start;">
+      
+      <!-- Detailed Insights in Modal -->
+      <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('hidden')" style="margin-top:15px;">▼ Detailed Insights (Optional)</div>
+      <div id="editDetailedInsights" class="hidden" style="padding-top: 10px;">
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+        <h4>Aktivitas Profil</h4>
+        <div class="form-row"><label for="editProfileActivity">Total Aktivitas Profil:</label><input type="number" id="editProfileActivity"></div>
+        <div class="form-row"><label for="editProfileVisits">Kunjungan Profil:</label><input type="number" id="editProfileVisits"></div>
+        <div class="form-row"><label for="editFollows">Follows:</label><input type="number" id="editFollows"></div>
+        <div class="form-row"><label for="editExternalLinkTaps">Ketukan Tautan Eksternal:</label><input type="number" id="editExternalLinkTaps"></div>
+        <div class="form-row"><label for="editBusinessAddressTaps">Ketukan Alamat Bisnis:</label><input type="number" id="editBusinessAddressTaps"></div>
+        <div class="form-row"><label for="editMessagingConversationsStarted">Percakapan Pesan Dimulai:</label><input type="number" id="editMessagingConversationsStarted"></div>
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+        <h4>Views Breakdown</h4>
+        <div class="form-row"><label for="editViewFollowersPercentage">From Followers (%):</label><input type="number" id="editViewFollowersPercentage" step="0.1"></div>
+        <div class="form-row"><label for="editViewNonFollowersPercentage">From Non-followers (%):</label><input type="number" id="editViewNonFollowersPercentage" step="0.1"></div>
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
+        <h4>Interactions Breakdown</h4>
+        <div class="form-row"><label for="editIntFollowersPercentage">From Followers (%):</label><input type="number" id="editIntFollowersPercentage" step="0.1"></div>
+        <div class="form-row"><label for="editIntNonFollowersPercentage">From Non-followers (%):</label><input type="number" id="editIntNonFollowersPercentage" step="0.1"></div>
+      </div>
+
+      <div class="form-row" style="align-items:flex-start; margin-top: 15px;">
         <label for="editContentNotes">Notes/captions:</label>
         <textarea id="editContentNotes" rows="4"></textarea>
       </div>
@@ -354,16 +415,18 @@
 
       function normalizeItem(v){
         v = Object.assign({}, v || {});
-        v.reach = +v.reach || 0;
-        v.impressions = +v.impressions || 0;
-        v.likes = +v.likes || 0;
-        v.comments = +v.comments || 0;
-        v.shares = +v.shares || 0;
-        v.saves = +v.saves || 0;
-        v.visit = +v.visit || 0;
-        v.websiteClicks = +v.websiteClicks || 0;
-        v.engagement = v.engagement !== undefined ? +v.engagement : (v.reach>0?(((v.likes||0)+(v.comments||0)+(v.shares||0)+(v.saves||0))/ (v.reach||1) *100):0);
-        if (!Array.isArray(v.tags)) v.tags = v.tag ? parseTagsFromString(v.tag) : (v.tags || []);
+        const fieldsToNormalize = [
+          'reach', 'impressions', 'likes', 'comments', 'shares', 'saves', 'postInteractions', 'reelsInteractions', 'profileActivity',
+          'profileVisits', 'follows', 'externalLinkTaps', 'businessAddressTaps', 'messagingConversationsStarted',
+          'viewFollowersPercentage', 'viewNonFollowersPercentage', 
+          'intFollowersPercentage', 'intNonFollowersPercentage'
+        ];
+        fieldsToNormalize.forEach(field => {
+          v[field] = +v[field] || 0;
+        });
+
+        v.engagement = v.reach > 0 ? (((v.likes||0)+(v.comments||0)+(v.shares||0)+(v.saves||0)) / v.reach * 100) : 0;
+        if (!Array.isArray(v.tags)) v.tags = v.tag ? parseTagsFromString(v.tag) : [];
         v.title = v.title || "";
         v.notes = v.notes || "";
         v.lastEdited = v.lastEdited || v._lastEdited || null;
@@ -445,18 +508,29 @@
       function populateFormFromSelected(date, idx){
         const obj = window.dataStore.posts[date] || { _items: [] };
         const v = obj._items[idx] || {};
-        document.getElementById("link").value = v.link || "";
-        document.getElementById("reach").value = v.reach || 0;
-        document.getElementById("impressions").value = v.impressions || 0;
-        document.getElementById("likes").value = v.likes || 0;
-        document.getElementById("comments").value = v.comments || 0;
-        document.getElementById("shares").value = v.shares || 0;
-        document.getElementById("saves").value = v.saves || 0;
+        const fields = [
+          'link', 'reach', 'impressions', 'likes', 'comments', 'shares', 'saves',
+          'postInteractions', 'reelsInteractions', 'profileActivity',
+          'profileVisits', 'follows', 'externalLinkTaps', 'businessAddressTaps', 'messagingConversationsStarted',
+          'viewFollowersPercentage', 'viewNonFollowersPercentage',
+          'intFollowersPercentage', 'intNonFollowersPercentage'
+        ];
+        fields.forEach(field => {
+          const element = document.getElementById(field);
+          if (element) {
+            // For number inputs, ensure 0 is displayed if the value is 0 or falsy.
+            // For other input types, display the value or an empty string.
+            if (element.type === 'number') {
+              element.value = (v[field] === 0 || v[field]) ? v[field] : 0;
+            } else {
+              element.value = v[field] || "";
+            }
+          }
+        });
+        // Perbaikan Bug Caption: Secara eksplisit memuat data 'notes'
+        document.getElementById("contentNotes").value = v.notes || v.contentNotes || "";
+
         document.getElementById("contentTag").value = (v.tags && v.tags.length) ? v.tags.join(', ') : (v.tag || '');
-        document.getElementById("contentNotes").value = v.notes || "";
-        document.getElementById("websiteClicks").value = v.websiteClicks || 0;
-        document.getElementById("visit").value = v.visit || 0;
-        // set newPostTitle to item title when selecting to ease rename
         document.getElementById("newPostTitle").value = v.title || "";
         updateLastEditedDisplay(v.lastEdited || null);
         updateEngagement();
@@ -480,18 +554,6 @@
         }
         const newItem = normalizeItem({
           title: uniqueTitle,
-          link: "",
-          reach: 0,
-          impressions: 0,
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          saves: 0,
-          visit: 0,
-          tag: "",
-          tags: [],
-          notes: "",
-          websiteClicks: 0,
           lastEdited: new Date().toISOString()
         });
         window.dataStore.posts[date]._items.push(newItem);
@@ -712,14 +774,16 @@
       }
 
       // engagement calculator
-      function updateEngagement(){
-        const reach = +document.getElementById("reach")?.value || 0;
-        const likes = +document.getElementById("likes")?.value || 0;
-        const comments = +document.getElementById("comments")?.value || 0;
-        const shares = +document.getElementById("shares")?.value || 0;
-        const saves = +document.getElementById("saves")?.value || 0;
-        const er = reach > 0 ? ((likes+comments+shares+saves)/reach)*100 : 0;
-        const el = document.getElementById("engagementRate");
+      function updateEngagement(prefix = ''){
+        const reach = +document.getElementById(prefix + "reach")?.value || 0;
+        if (reach <= 0) return document.getElementById(prefix + "engagementRate").innerHTML = "<strong>Engagement Rate:</strong> 0.0%";
+        const likes = +document.getElementById(prefix + "likes")?.value || 0;
+        const comments = +document.getElementById(prefix + "comments")?.value || 0;
+        const shares = +document.getElementById(prefix + "shares")?.value || 0;
+        const saves = +document.getElementById(prefix + "saves")?.value || 0;
+        const er = ((likes+comments+shares+saves)/reach)*100;
+        const el = document.getElementById(prefix + "engagementRate");
+
         if (el) el.innerHTML = "<strong>Engagement Rate:</strong> " + er.toFixed(1) + "%";
       }
 
@@ -739,6 +803,135 @@
         try { el.textContent = new Date(iso).toLocaleString(); } catch(e) { el.textContent = iso; }
       }
 
+      function importFromExtension(prefix = '') {
+          const pasteArea = document.getElementById(prefix ? `${prefix}ExtensionDataPaste` : 'extensionDataPaste');
+          const text = pasteArea.value.trim();
+          if (!text) {
+              alert('Text area kosong. Silakan paste data dari ekstensi.');
+              return;
+          }
+
+          let fieldsFilledCount = 0;
+          let data = {};
+          let isJson = false;
+
+          // Try to parse as JSON first
+          try {
+              data = JSON.parse(text);
+              isJson = true;
+          } catch (e) {
+              isJson = false;
+          }
+
+          const mapping = {
+              // JSON keys from old extension
+              'reach': 'reach',
+              'likes': 'likes',
+              'comments': 'comments',
+              'shares': 'shares',
+              'saves': 'saves',
+              'impressions': 'impressions',
+              'post interactions': 'postInteractions',
+              'visit': 'profileVisits',
+              'profile visits': 'profileVisits',
+              'profilevisits': 'profileVisits', // Added for direct JSON key
+              'websiteclicks': 'externalLinkTaps',
+              'external link taps': 'externalLinkTaps',
+              'externallinktaps': 'externalLinkTaps', // Added for direct JSON key
+              'linkclicks': 'externalLinkTaps', // Added for common "linkclicks"
+              'plays': 'views', // Assuming plays from old format maps to views
+
+              'postinteractions': 'postInteractions', // <-- Fix for import
+              // New ad-specific keys
+              'messaging conversations started': 'messagingConversationsStarted',
+              // Keys from new extension (and manual paste)
+              'views': 'views',
+              'accounts reached': 'reach',
+              'reels interactions': 'reelsInteractions',
+              'profile activity': 'profileActivity',
+              'profileactivity': 'profileActivity', // Added for direct JSON key
+              'follows': 'follows',
+              'business address taps': 'businessAddressTaps',
+              'businessaddresstaps': 'businessAddressTaps', // Added for direct JSON key
+              'view followers percentage': 'viewFollowersPercentage',
+              'view non-followers percentage': 'viewNonFollowersPercentage',
+              'interaction followers percentage': 'intFollowersPercentage',
+              'interaction non-followers percentage': 'intNonFollowersPercentage',
+          };
+
+          if (isJson) {
+              for (const key in data) {
+                  const lowerKey = key.toLowerCase().replace(/\s/g, '');
+                  const targetField = mapping[lowerKey];
+                  if (targetField) {
+                      let elementId;
+                      if (prefix) {
+                          // Correctly construct element ID for edit modal
+                          elementId = prefix + targetField.charAt(0).toUpperCase() + targetField.slice(1);
+                      } else {
+                          elementId = targetField;
+                      }
+                      const element = document.getElementById(elementId);
+                      if (element) {
+                          element.value = parseFloat(data[key]) || 0;
+                          // DEBUG: Log profileVisits value during JSON import
+                          if (targetField === 'profileVisits') {
+                              console.log(`DEBUG (JSON): Setting ${elementId} to ${element.value} from data[${key}] = ${data[key]}`);
+                          }
+                          fieldsFilledCount++;
+                      }
+                  }
+              }
+          } else { // Fallback to line-by-line parsing
+              const lines = text.split('\n');
+              lines.forEach(line => {
+                  const parts = line.split(/:(.*)/s);
+                  if (parts.length < 2) return;
+
+                  const key = parts[0].trim().toLowerCase();
+                  const value = parts[1].trim();
+                  
+                  const targetField = mapping[key];
+
+                  if (targetField) {
+                      let elementId;
+                      if (prefix) {
+                          // Correctly construct element ID for edit modal
+                          elementId = prefix + targetField.charAt(0).toUpperCase() + targetField.slice(1);
+                      } else {
+                          elementId = targetField;
+                      }
+                      const element = document.getElementById(elementId);
+                      if (element) {
+                          element.value = parseFloat(value.replace(/,/g, '')) || 0;
+                          // DEBUG: Log profileVisits value during line-by-line import
+                          if (targetField === 'profileVisits') {
+                              console.log(`DEBUG (Line-by-line): Setting ${elementId} to ${element.value} from parsed value = ${value}`);
+                          }
+                          fieldsFilledCount++;
+                      }
+                  }
+              });
+          }
+
+
+          if (fieldsFilledCount > 0) {
+              alert(`Formulir telah berhasil diisi dengan ${fieldsFilledCount} data dari ekstensi.`);
+              updateEngagement(prefix);
+              if (!prefix) {
+                scheduleAutoSave(500);
+              }
+              pasteArea.value = '';
+          } else {
+              let errorMessage = 'Tidak ada data yang cocok untuk diisi. Pastikan format teks dari ekstensi benar.';
+              if (!isJson) {
+                  errorMessage += '\n\nCatatan: Data yang Anda tempelkan bukan format JSON yang valid. Pastikan Anda menyalin data JSON murni.';
+              }
+              alert(errorMessage);
+          }
+      }
+      window.importFromExtension = importFromExtension;
+
       // save data (now saves into selected item on selected date)
       function saveData(){
         const date = document.getElementById("dateInput")?.value;
@@ -746,29 +939,38 @@
         if (!window.dataStore.posts[date]) window.dataStore.posts[date] = { _items: [] };
         if (!Array.isArray(window.dataStore.posts[date]._items)) window.dataStore.posts[date]._items = [];
 
-        const link = document.getElementById("link")?.value || "";
-        const reach = +document.getElementById("reach")?.value || 0;
-        const impressions = +document.getElementById("impressions")?.value || 0;
-        const likes = +document.getElementById("likes")?.value || 0;
-        const comments = +document.getElementById("comments")?.value || 0;
-        const shares = +document.getElementById("shares")?.value || 0;
-        const saves = +document.getElementById("saves")?.value || 0;
-        const visit = +document.getElementById("visit")?.value || 0;
-        const engagement = reach > 0 ? ((likes+comments+shares+saves)/reach)*100 : 0;
-        const rawTag = document.getElementById("contentTag")?.value || "";
-        const tags = parseTagsFromString(rawTag);
         const idx = window.currentPostIndex || 0;
-        // ensure item exists
         if (!window.dataStore.posts[date]._items[idx]) {
-          // create placeholder items up to idx
           while (window.dataStore.posts[date]._items.length <= idx) {
             window.dataStore.posts[date]._items.push(normalizeItem({title: 'Post ' + (window.dataStore.posts[date]._items.length+1)}));
           }
         }
-        const titleVal = (document.getElementById("newPostTitle")?.value || "").trim();
+        
         const item = Object.assign({}, window.dataStore.posts[date]._items[idx]);
-        Object.assign(item, { link, reach, impressions, likes, comments, shares, saves, visit, engagement, tag: rawTag, tags, notes: document.getElementById("contentNotes")?.value || "", websiteClicks: +document.getElementById("websiteClicks")?.value || 0, lastEdited: new Date().toISOString() });
+        const fieldsToSave = [
+          'link', 'reach', 'impressions', 'likes', 'comments', 'shares', 'saves',
+          'postInteractions', 'reelsInteractions', 'profileActivity', 'messagingConversationsStarted',
+          'profileVisits', 'follows', 'externalLinkTaps', 'businessAddressTaps',
+          'viewFollowersPercentage', 'viewNonFollowersPercentage',
+          'intFollowersPercentage', 'intNonFollowersPercentage'
+        ];
+        fieldsToSave.forEach(field => {
+          const element = document.getElementById(field);
+          if (element) {
+            item[field] = (element.type === 'number') ? +element.value || 0 : element.value;
+          }
+        });
+
+        // Perbaikan Bug Caption: Menyimpan caption/notes dengan benar
+        item.notes = document.getElementById("contentNotes")?.value || "";
+
+        const rawTag = document.getElementById("contentTag")?.value || "";
+        item.tag = rawTag;
+        item.tags = parseTagsFromString(rawTag);
+        item.lastEdited = new Date().toISOString();
+        const titleVal = (document.getElementById("newPostTitle")?.value || "").trim();
         if (titleVal) item.title = titleVal;
+
         window.dataStore.posts[date]._items[idx] = normalizeItem(item);
 
         // update profile basic snapshot fields
@@ -907,8 +1109,12 @@
           const row = `<tr>
             <td>${escapeHtml(date)}</td>
             <td style="text-align:left;">${linkHtml}${meta}</td>
-            <td>${d.reach||0}</td><td>${d.impressions||0}</td><td>${d.likes||0}</td><td>${d.comments||0}</td>
-            <td>${d.shares||0}</td><td>${d.saves||0}</td>
+            <td>${d.reach || 0}</td>
+            <td>${d.impressions || 0}</td>
+            <td>${d.likes || 0}</td>
+            <td>${d.comments || 0}</td>
+            <td>${d.saves||0}</td>
+            <td>${d.profileVisits||0}</td>
             <td>${Number(rate).toFixed(1)}%</td>
             <td><button onclick="editData('${entry.token}')">Ubah</button> <button onclick="deleteData('${entry.token}')">Hapus</button></td>
           </tr>`;
@@ -986,35 +1192,53 @@
 
         document.getElementById('editToken').value = token;
         document.getElementById('editDate').value = originalDate;
-        document.getElementById('editTitle').value = data.title || '';
-        document.getElementById('editLink').value = data.link || '';
-        document.getElementById('editReach').value = data.reach || 0;
-        document.getElementById('editImpressions').value = data.impressions || 0;
-        document.getElementById('editLikes').value = data.likes || 0;
-        document.getElementById('editComments').value = data.comments || 0;
-        document.getElementById('editShares').value = data.shares || 0;
-        document.getElementById('editSaves').value = data.saves || 0;
-        document.getElementById('editVisit').value = data.visit || 0;
-        document.getElementById('editContentTag').value = (data.tags || []).join(', ');
-        document.getElementById('editWebsiteClicks').value = data.websiteClicks || 0;
-        document.getElementById('editContentNotes').value = data.notes || '';
+        
+        // Daftar field yang akan diisi di modal edit
+        const fields = [ // Ramped up fields array
+          'Title', 'Link', 'Reach', 'Impressions', 'PostInteractions', 'Likes', 'Comments', 'Shares', 'Saves',
+          'ReelsInteractions', 'ProfileActivity', 'ProfileVisits', 'Follows', 'ExternalLinkTaps', 'BusinessAddressTaps', 'MessagingConversationsStarted',
+          'ViewFollowersPercentage', 'ViewNonFollowersPercentage', 
+          'IntFollowersPercentage', 'IntNonFollowersPercentage'
+        ];
+
+        fields.forEach(field => {
+          const element = document.getElementById('edit' + field);
+          if (element) {
+            const key = field.charAt(0).toLowerCase() + field.slice(1);
+            element.value = data[key] || (element.type === 'number' ? 0 : '');
+          }
+        });
+
+        // Penanganan khusus untuk Tag dan Notes (Caption) untuk memastikan kompatibilitas
+        document.getElementById('editContentTag').value = (data.tags || []).join(', ') || data.tag || '';
+        // Perbaikan Bug Caption: Memuat 'notes' atau 'contentNotes' dari data lama/baru
+        document.getElementById('editContentNotes').value = data.notes || data.contentNotes || '';
 
         document.getElementById('editModal').style.display = 'flex';
-        updateEditEngagement(); // Panggil kalkulasi engagement saat modal dibuka
+        calculateModalEngagementRate(); // Panggil kalkulasi engagement yang benar saat modal dibuka
+        
       }
       window.editData = editData;
 
       // Fungsi untuk menghitung engagement rate di dalam modal edit
       function updateEditEngagement() {
-        const reach = +document.getElementById('editReach').value || 0;
-        const likes = +document.getElementById('editLikes').value || 0;
-        const comments = +document.getElementById('editComments').value || 0;
-        const shares = +document.getElementById('editShares').value || 0;
-        const saves = +document.getElementById('editSaves').value || 0;
-        const er = reach > 0 ? ((likes + comments + shares + saves) / reach) * 100 : 0;
-        document.getElementById('editEngagementRate').innerHTML = `<strong>Engagement Rate:</strong> ${er.toFixed(1)}%`;
+        updateEngagement('edit');
       }
-      window.editData = editData;
+      window.updateEditEngagement = updateEditEngagement;
+
+      // Fungsi kalkulasi engagement yang didedikasikan KHUSUS untuk modal edit
+      function calculateModalEngagementRate() {
+        const reach = +document.getElementById('editReach')?.value || 0;
+        const likes = +document.getElementById('editLikes')?.value || 0;
+        const comments = +document.getElementById('editComments')?.value || 0;
+        const shares = +document.getElementById('editShares')?.value || 0;
+        const saves = +document.getElementById('editSaves')?.value || 0;
+        const el = document.getElementById('editEngagementRate');
+        if (!el) return;
+
+        const er = reach > 0 ? ((likes + comments + shares + saves) / reach) * 100 : 0;
+        el.innerHTML = "<strong>Engagement Rate:</strong> " + er.toFixed(1) + "%";
+      }
 
       function deleteData(token){
         const parts = String(token||'').split('||');
@@ -1069,29 +1293,37 @@
         }
 
         const newDate = document.getElementById('editDate').value;
-        const reach = +document.getElementById('editReach').value || 0;
-        const likes = +document.getElementById('editLikes').value || 0;
-        const comments = +document.getElementById('editComments').value || 0;
-        const shares = +document.getElementById('editShares').value || 0;
-        const saves = +document.getElementById('editSaves').value || 0;
+        
+        const editedData = {};
+        const fieldsToSave = [
+          'Title', 'Link', 'Reach', 'Impressions', 'PostInteractions', 'Likes', 'Comments', 'Shares', 'Saves',
+          'ReelsInteractions', 'ProfileActivity', 'ProfileVisits', 'Follows', 'ExternalLinkTaps', 'BusinessAddressTaps', 'MessagingConversationsStarted',
+          'ViewFollowersPercentage', 'ViewNonFollowersPercentage',
+          'IntFollowersPercentage', 'IntNonFollowersPercentage'
+        ];
 
-        const editedData = {
-          title: document.getElementById('editTitle').value.trim(),
-          link: document.getElementById('editLink').value,
-          reach: reach,
-          impressions: +document.getElementById('editImpressions').value || 0,
-          likes: likes,
-          comments: comments,
-          shares: shares,
-          saves: saves,
-          visit: +document.getElementById('editVisit').value || 0,
-          tag: document.getElementById('editContentTag').value,
-          tags: parseTagsFromString(document.getElementById('editContentTag').value),
-          websiteClicks: +document.getElementById('editWebsiteClicks').value || 0,
-          notes: document.getElementById('editContentNotes').value,
-          engagement: reach > 0 ? ((likes + comments + shares + saves) / reach) * 100 : 0,
-          lastEdited: new Date().toISOString()
-        };
+        fieldsToSave.forEach(field => {
+          const element = document.getElementById('edit' + field);
+          if (element) {
+            const key = field.charAt(0).toLowerCase() + field.slice(1);
+            editedData[key] = (element.type === 'number') ? +element.value || 0 : element.value;
+          }
+        });
+
+        // Perbaikan Bug Caption: Menyimpan notes/caption dari modal edit dengan benar
+        editedData.notes = document.getElementById('editContentNotes').value || "";
+
+        const rawTag = document.getElementById('editContentTag').value;
+        editedData.tag = rawTag;
+        editedData.tags = parseTagsFromString(rawTag);
+        editedData.lastEdited = new Date().toISOString();
+
+        const reach = editedData.reach;
+        const likes = editedData.likes;
+        const comments = editedData.comments;
+        const shares = editedData.shares;
+        const saves = editedData.saves;
+        editedData.engagement = reach > 0 ? ((likes + comments + shares + saves) / reach) * 100 : 0;
 
         // Hapus data lama dan tambahkan data baru (menangani perubahan tanggal)
         deletePostItem(originalDate, idx);
@@ -1169,7 +1401,7 @@
       // CSV exports
       function exportCsvPostsMode(mode){
         const selectedMonth = document.getElementById("monthFilter")?.value || "all";
-        const rows = [["Date","Link","Reach","Impressions","Likes","Comments","Shares","Saves","Engagement Rate","Tags"]];
+        const rows = [["Date","Link","Reach","Impressions","Likes","Comments","Shares","Saves","Post Interactions","Profile Visits","Engagement Rate","Tags"]];
         Object.keys(dataStore.posts || {}).sort().forEach(date => {
           if (mode==="filter" && selectedMonth!=="all" && !date.startsWith(selectedMonth)) return;
           const p = dataStore.posts[date] || {};
@@ -1177,7 +1409,7 @@
           items.forEach(it => {
             const d = it || {};
             const rate = d.engagement !== undefined ? d.engagement : (d.reach>0?(((d.likes||0)+(d.comments||0)+(d.shares||0)+(d.saves||0))/ (d.reach||1) *100):0);
-            rows.push([date, d.link||"", d.reach||0, d.impressions||0, d.likes||0, d.comments||0, d.shares||0, d.saves||0, Number(rate).toFixed(1) + "%", (d.tags||[]).join(' ')]);
+            rows.push([date, d.link||"", d.reach||0, d.impressions||0, d.likes||0, d.comments||0, d.shares||0, d.saves||0, d.postInteractions||0, d.profileVisits||0, Number(rate).toFixed(1) + "%", (d.tags||[]).join(' ')]);
           });
         });
         const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
@@ -1315,7 +1547,14 @@
         // --- AKHIR SCRIPT ---
         // inputs
         document.getElementById('dateInput')?.addEventListener('change', handleDateChange);
-        ["link","reach","impressions","likes","comments","shares","saves","contentTag","contentNotes","websiteClicks","visit","newPostTitle"].forEach(id=>{
+        const fieldsToWatch = [
+          'link', 'reach', 'impressions', 'likes', 'comments', 'shares', 'saves', 
+          'postInteractions', 'reelsInteractions', 'views', 'profileActivity', 
+          'profileVisits', 'follows', 'externalLinkTaps', 'businessAddressTaps',
+          'viewFollowersPercentage', 'viewNonFollowersPercentage', 
+          'intFollowersPercentage', 'intNonFollowersPercentage', 'contentNotes', 'contentTag', 'newPostTitle'
+        ];
+        fieldsToWatch.forEach(id=>{
           const el = document.getElementById(id);
           if (el) el.addEventListener('input', function(){ updateEngagement(); scheduleAutoSave(1200); });
         });
@@ -1334,9 +1573,12 @@
         document.getElementById('jsonFile')?.addEventListener('change', loadJson);
 
         // Tambahkan event listener untuk input di modal edit
-        ['editReach', 'editLikes', 'editComments', 'editShares', 'editSaves'].forEach(id => {
+        const editFieldsToWatch = [
+          'editReach', 'editLikes', 'editComments', 'editShares', 'editSaves'
+        ];
+        editFieldsToWatch.forEach(id => {
           const el = document.getElementById(id);
-          if (el) el.addEventListener('input', updateEditEngagement);
+          if (el) el.addEventListener('input', calculateModalEngagementRate);
         });
 
         initCompactObserver();

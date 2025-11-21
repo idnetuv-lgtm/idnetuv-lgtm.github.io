@@ -87,6 +87,28 @@
             gap: 25px;
         }
 
+        .instructions-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .instructions-content {
+            background-color: var(--card-bg-color);
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .instructions-content ol { line-height: 1.8; }
+
         .app-card {
             background-color: var(--card-bg-color);
             border-radius: 12px;
@@ -134,6 +156,11 @@
             flex-grow: 1;
         }
 
+        .app-card-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
         .btn {
             display: inline-block;
             padding: 12px 24px;
@@ -153,6 +180,22 @@
         }
         .btn-primary:hover {
             background-color: #357abd;
+        }
+
+        .btn-secondary {
+            background-color: var(--text-muted-color);
+            color: var(--white-color);
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn-secondary {
+            background-color: var(--text-muted-color);
+            color: var(--white-color);
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268;
         }
 
         /* Mobile Responsive */
@@ -185,7 +228,7 @@
             </a>
 
             <!-- App Card: Insight Instagram -->
-            <a href="instagram" class="app-card">
+            <a href="instagram.html" class="app-card">
                 <div class="app-card-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" /></svg>
                 </div>
@@ -203,11 +246,44 @@
                 <p>Dapatkan wawasan mendalam dari akun TikTok. Pantau tren video, performa suara, dan demografi audiens.</p>
                 <div class="btn btn-primary">Buka Aplikasi</div>
             </a>
+
+            <!-- App Card: Instagram Insight Scraper -->
+            <div class="app-card">
+                <div class="app-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                </div>
+                <h2>Instagram Scraper</h2>
+                <p>Ekstensi Chrome untuk mengambil data insight dari Instagram dengan mudah.</p>
+                <div class="app-card-buttons">
+                    <a href="https://drive.google.com/file/d/1pRmrZk6j9ZpDCQcZBRzmHMuSpSpQy-ZF/view?usp=sharing" target="_blank" class="btn btn-primary">Download</a>
+                    <button type="button" id="show-instructions-btn" class="btn btn-secondary">Petunjuk</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="instructions-modal" class="instructions-modal">
+        <div class="instructions-content">
+            <h2>Petunjuk Instalasi Ekstensi Chrome</h2>
+            <ol>
+                <li><strong>Unduh File:</strong> Klik tombol "Download" untuk mengunduh file <code>.zip</code> ekstensi.</li>
+                <li><strong>Ekstrak File:</strong> Setelah terunduh, ekstrak file <code>.zip</code> tersebut ke dalam sebuah folder di komputer Anda.</li>
+                <li><strong>Buka Halaman Ekstensi:</strong> Buka browser Google Chrome, ketik <code>chrome://extensions</code> di address bar, lalu tekan Enter.</li>
+                <li><strong>Aktifkan Mode Developer:</strong> Di pojok kanan atas halaman ekstensi, aktifkan saklar "Developer mode" (Mode Pengembang).</li>
+                <li><strong>Muat Ekstensi:</strong> Klik tombol "Load unpacked" (Muat yang belum dibuka) yang muncul di sisi kiri atas.</li>
+                <li><strong>Pilih Folder:</strong> Arahkan ke folder tempat Anda mengekstrak file tadi, lalu klik "Select Folder".</li>
+                <li><strong>Selesai:</strong> Ekstensi sekarang sudah terpasang dan siap digunakan. Anda akan melihat ikonnya di toolbar Chrome.</li>
+            </ol>
+            <button type="button" id="close-instructions-btn" class="btn btn-primary" style="margin-top: 15px;">Tutup</button>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const instructionsModal = document.getElementById('instructions-modal');
+            const showInstructionsBtn = document.getElementById('show-instructions-btn');
+            const closeInstructionsBtn = document.getElementById('close-instructions-btn');
+
             const themeToggle = document.getElementById('theme-toggle');
             // Theme Toggle
             const applyTheme = (theme) => {
@@ -224,6 +300,18 @@
                 const currentTheme = localStorage.getItem('theme') || 'light';
                 const newTheme = currentTheme === 'light' ? 'dark' : 'light';
                 applyTheme(newTheme);
+            });
+
+            // Modal Logic
+            showInstructionsBtn.addEventListener('click', (e) => {
+                e.preventDefault(); // Mencegah navigasi jika tombol ada di dalam <a>
+                instructionsModal.style.display = 'flex';
+            });
+            closeInstructionsBtn.addEventListener('click', () => {
+                instructionsModal.style.display = 'none';
+            });
+            window.addEventListener('click', (e) => {
+                if (e.target === instructionsModal) instructionsModal.style.display = 'none';
             });
         });
     </script>

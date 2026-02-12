@@ -366,16 +366,16 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         return total;
     }
     function updateMonthlyReachDisplay() {
-        const sel = document.getElementById("profileMonthForReach") || document.getElementById("profileMonthFilter");
+        const sel = document.getElementById("monthFilter") || document.getElementById("profileMonthFilter");
         const month = sel ? sel.value : "all";
         const el = document.getElementById("monthlyReachTotal");
-        if (el) el.innerText = calculateMonthlyReach(month);
+        if (el) el.innerText = calculateMonthlyReach(month).toLocaleString();
     }
     function updateMonthlyImpressionsDisplay() {
-        const sel = document.getElementById("profileMonthForReach") || document.getElementById("profileMonthFilter");
+        const sel = document.getElementById("monthFilter") || document.getElementById("profileMonthFilter");
         const month = sel ? sel.value : "all";
         const el = document.getElementById("monthlyImpressionsTotal");
-        if (el) el.innerText = calculateMonthlyImpressions(month);
+        if (el) el.innerText = calculateMonthlyImpressions(month).toLocaleString();
     }
 
     // profile inputs
@@ -465,17 +465,17 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
     // --- CHART LOGIC ---
     const chartMetricsConfig = [
-        { key: 'reach', label: 'Reach', type: 'sum', axis: 'y' },
-        { key: 'impressions', label: 'Impressions', type: 'sum', axis: 'y' },
-        { key: 'likes', label: 'Likes', type: 'sum', axis: 'y' },
-        { key: 'comments', label: 'Comments', type: 'sum', axis: 'y' },
-        { key: 'engagement', label: 'Eng. Rate %', type: 'avg', axis: 'y1' }, // Calculated
-        { key: 'shares', label: 'Shares', type: 'sum', axis: 'y' },
-        { key: 'saves', label: 'Saves', type: 'sum', axis: 'y' },
-        { key: 'follows', label: 'Follows', type: 'sum', axis: 'y' },
-        { key: 'profileVisits', label: 'Profile Visits', type: 'sum', axis: 'y' },
-        { key: 'externalLinkTaps', label: 'Link Taps', type: 'sum', axis: 'y' },
-        { key: 'views', label: 'Video Views', type: 'sum', axis: 'y' }
+        { key: 'reach', label: 'Reach', type: 'sum', axis: 'y', tip: 'Jumlah akun unik yang melihat postingan' },
+        { key: 'impressions', label: 'Impressions', type: 'sum', axis: 'y', tip: 'Total berapa kali postingan ditampilkan' },
+        { key: 'likes', label: 'Likes', type: 'sum', axis: 'y', tip: 'Jumlah orang yang Like postingan' },
+        { key: 'comments', label: 'Comments', type: 'sum', axis: 'y', tip: 'Jumlah komentar pada postingan' },
+        { key: 'engagement', label: 'Eng. Rate %', type: 'avg', axis: 'y1', tip: '(Likes+Comments+Shares+Saves) ÷ Reach × 100%' },
+        { key: 'shares', label: 'Shares', type: 'sum', axis: 'y', tip: 'Berapa kali postingan dibagikan ke Story/DM' },
+        { key: 'saves', label: 'Saves', type: 'sum', axis: 'y', tip: 'Berapa kali postingan disimpan (bookmark)' },
+        { key: 'follows', label: 'Follows', type: 'sum', axis: 'y', tip: 'Jumlah follow baru dari postingan ini' },
+        { key: 'profileVisits', label: 'Profile Visits', type: 'sum', axis: 'y', tip: 'Berapa kali profil dikunjungi dari post ini' },
+        { key: 'externalLinkTaps', label: 'Link Taps', type: 'sum', axis: 'y', tip: 'Berapa kali link di-tap dari post ini' },
+        { key: 'views', label: 'Video Views', type: 'sum', axis: 'y', tip: 'Jumlah views untuk video/reels' }
     ];
 
     // Init metric pill toggles
@@ -490,6 +490,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             pill.className = 'metric-toggle';
             pill.dataset.key = m.key;
             pill.style.setProperty('--metric-color', metricColors[i % metricColors.length]);
+            if (m.tip) pill.title = m.tip;
 
             // Color dot
             const dot = document.createElement('span');
@@ -1096,6 +1097,14 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             filtered.sort((a, b) => b.date.localeCompare(a.date));
         }
 
+        // Build sort badge labels map
+        const sortLabelMap = {
+            reach: 'Reach', impressions: 'Impr', likes: 'Likes', comments: 'Comments',
+            shares: 'Shares', saves: 'Saves', follows: 'Follows',
+            profileVisits: 'Profile Visits', externalLinkTaps: 'Link Taps', views: 'Views',
+            engagement: 'Eng. Rate'
+        };
+
         // render rows
         filtered.forEach(entry => {
             const date = entry.date;
@@ -1106,10 +1115,23 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             const linkHtml = d.link ? `<a href="${escapeHtml(d.link)}" target="_blank">${escapeHtml(d.link)}</a>` : "";
             const titleHtml = d.title ? `<div class="metaSmall">(${escapeHtml(d.title)})</div>` : "";
             const notesHtml = d.notes ? `<div class="metaSmall">Notes: ${escapeHtml(d.notes)}</div>` : "";
+
+            // Badge for sorted metric (only when sorting by a non-date metric)
+            let sortBadgeHtml = '';
+            if (sortField !== 'date' && sortDir !== 'none' && sortLabelMap[sortField]) {
+                let badgeVal;
+                if (sortField === 'engagement') {
+                    badgeVal = Number(rate).toFixed(1) + '%';
+                } else {
+                    badgeVal = (+(d[sortField] || 0)).toLocaleString();
+                }
+                sortBadgeHtml = `<span style="display:inline-block;background:#e3f2fd;color:#1565c0;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-right:6px;vertical-align:middle;">${sortLabelMap[sortField]}: ${badgeVal}</span>`;
+            }
+
             const meta = (tagHtml || titleHtml || notesHtml) ? `<div style="margin-top:6px; text-align:left;">${tagHtml}${titleHtml}${notesHtml}</div>` : "";
             const row = `<tr>
         <td>${escapeHtml(date)}</td>
-        <td style="text-align:left;">${linkHtml}${meta}</td>
+        <td style="text-align:left;">${sortBadgeHtml}${linkHtml}${meta}</td>
         <td>${d.reach || 0}</td>
         <td>${d.impressions || 0}</td>
         <td>${d.likes || 0}</td>
@@ -2230,7 +2252,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             updateHistoryPanel();
             updateStatsUI();
             // update when monthFilter changed
-            document.getElementById('monthFilter')?.addEventListener('change', function () { updateStatsUI(); updateHistoryPanel(); });
+            document.getElementById('monthFilter')?.addEventListener('change', function () { updateStatsUI(); updateHistoryPanel(); updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); });
 
             // keyboard shortcuts for undo/redo:
             // - Ctrl/Cmd+Z => undo

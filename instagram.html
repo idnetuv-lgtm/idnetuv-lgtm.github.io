@@ -75,6 +75,23 @@
         </div>
       </div>
 
+      <!-- Snapshot Management (above chart) -->
+      <div style="margin-top:20px; border-top:1px dashed #ccc; padding-top:15px;">
+        <h4>Profile Snapshots</h4>
+        <div class="form-row" style="background:#fafafa; padding:10px; border-radius:6px;">
+          <label>Simpan Snapshot Bulan:</label>
+          <input type="month" id="profileMonthInput">
+          <button class="btn-secondary" onclick="saveProfileSnapshot()">Simpan Snapshot</button>
+        </div>
+        <div class="form-row" style="margin-top:10px;">
+          <label>Lihat Snapshot:</label>
+          <select id="profileMonthFilter">
+            <option value="all">Semua / Current</option>
+          </select>
+          <button class="btn-danger" onclick="deleteProfileSnapshot()">Hapus Snapshot</button>
+        </div>
+      </div>
+
       <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
         <div style="margin-bottom:15px; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -108,23 +125,6 @@
           </div>
         </div>
         <canvas id="profileChart" height="90"></canvas>
-      </div>
-
-      <!-- Snapshot Management -->
-      <div style="margin-top:20px; border-top:1px dashed #ccc; padding-top:15px;">
-        <h4>Profile Snapshots</h4>
-        <div class="form-row" style="background:#fafafa; padding:10px; border-radius:6px;">
-          <label>Simpan Snapshot Bulan:</label>
-          <input type="month" id="profileMonthInput">
-          <button class="btn-secondary" onclick="saveProfileSnapshot()">Simpan Snapshot</button>
-        </div>
-        <div class="form-row" style="margin-top:10px;">
-          <label>Lihat Snapshot:</label>
-          <select id="profileMonthFilter">
-            <option value="all">Semua / Current</option>
-          </select>
-          <button class="btn-danger" onclick="deleteProfileSnapshot()">Hapus Snapshot</button>
-        </div>
       </div>
     </div>
 
@@ -181,46 +181,73 @@
         <div style="flex:1; min-width:300px;">
           <h5>Metrics Utama</h5>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <div><label style="display:block;font-size:12px;">Reach</label><input type="number" id="reach"
-                style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;">Impressions</label><input type="number" id="impressions"
-                style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;">Likes</label><input type="number" id="likes"
-                style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;">Comments</label><input type="number" id="comments"
-                style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;">Shares</label><input type="number" id="shares"
-                style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;">Saves</label><input type="number" id="saves"
-                style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Reach = Jumlah akun unik yang melihat postingan kamu. Buka Instagram → Post → View Insights → Accounts Reached.">Reach
+                ℹ️</label><input type="number" id="reach" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Impressions = Total berapa kali postingan ditampilkan (termasuk pengguna yang sama). Buka Instagram → Post → View Insights → Impressions.">Impressions
+                ℹ️</label><input type="number" id="impressions" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Likes = Jumlah orang yang menekan tombol Love ❤️ di postingan. Terlihat langsung di bawah post atau di Insights.">Likes
+                ℹ️</label><input type="number" id="likes" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Comments = Jumlah komentar yang diterima postingan. Terlihat di bawah post atau di View Insights.">Comments
+                ℹ️</label><input type="number" id="comments" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Shares = Jumlah kali postingan dibagikan ke Story, DM, atau platform lain. Buka View Insights → Shares.">Shares
+                ℹ️</label><input type="number" id="shares" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Saves = Jumlah kali postingan disimpan (bookmark) oleh pengguna. Buka View Insights → Saves.">Saves
+                ℹ️</label><input type="number" id="saves" style="width:100%"></div>
           </div>
           <div id="engagementRate"
-            style="margin:10px 0; padding:8px; background:#e8f5e9; color:#2e7d32; border-radius:4px; text-align:center;">
+            title="Engagement Rate = (Likes + Comments + Shares + Saves) ÷ Reach × 100%. Dihitung otomatis dari data di atas."
+            style="margin:10px 0; padding:8px; background:#e8f5e9; color:#2e7d32; border-radius:4px; text-align:center; cursor:help;">
             <strong>Engagement Rate:</strong> 0.0%
           </div>
 
           <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('hidden')">Metric Lanjutan (Klik
             untuk buka)</div>
           <div class="hidden" style="padding:10px; border:1px solid #eee; border-top:none; background:#fafafa;">
-            <div class="form-row"><label>Post Interactions:</label><input type="number" id="postInteractions"></div>
-            <div class="form-row"><label>Reels Interactions:</label><input type="number" id="reelsInteractions"></div>
-            <div class="form-row"><label>Profile Activity:</label><input type="number" id="profileActivity"></div>
-            <div class="form-row"><label>Profile Visits:</label><input type="number" id="profileVisits"></div>
-            <div class="form-row"><label>Follows:</label><input type="number" id="follows"></div>
-            <div class="form-row"><label>Ext. Link Taps:</label><input type="number" id="externalLinkTaps"></div>
-            <div class="form-row"><label>Business Addr Taps:</label><input type="number" id="businessAddressTaps"></div>
-            <div class="form-row"><label>Msg Started:</label><input type="number" id="messagingConversationsStarted">
+            <div class="form-row"><label
+                title="Post Interactions = Total interaksi (likes + comments + saves + shares) pada post biasa. Buka View Insights → Post Interactions.">Post
+                Interactions ℹ️</label><input type="number" id="postInteractions"></div>
+            <div class="form-row"><label
+                title="Reels Interactions = Total interaksi (likes + comments + saves + shares) khusus Reels. Buka Reels → View Insights → Interactions.">Reels
+                Interactions ℹ️</label><input type="number" id="reelsInteractions"></div>
+            <div class="form-row"><label
+                title="Profile Activity = Jumlah aksi yang dilakukan orang dari profil kamu setelah melihat post ini. Di View Insights bagian 'Profile Activity'.">Profile
+                Activity ℹ️</label><input type="number" id="profileActivity"></div>
+            <div class="form-row"><label
+                title="Profile Visits = Berapa kali orang mengunjungi profil kamu setelah melihat post ini. View Insights → Profile Visits.">Profile
+                Visits ℹ️</label><input type="number" id="profileVisits"></div>
+            <div class="form-row"><label
+                title="Follows = Jumlah orang yang follow akun kamu setelah melihat post ini. View Insights → Follows.">Follows
+                ℹ️</label><input type="number" id="follows"></div>
+            <div class="form-row"><label
+                title="Ext. Link Taps = Berapa kali link di bio/sticker di-tap dari post ini. View Insights → External Link Taps.">Ext.
+                Link Taps ℹ️</label><input type="number" id="externalLinkTaps"></div>
+            <div class="form-row"><label
+                title="Business Addr Taps = Berapa kali alamat bisnis di-tap dari post ini. View Insights → Business Address Taps.">Business
+                Addr Taps ℹ️</label><input type="number" id="businessAddressTaps"></div>
+            <div class="form-row"><label
+                title="Msg Started = Jumlah percakapan baru yang dimulai dari post ini. View Insights → Messaging Conversations Started.">Msg
+                Started ℹ️</label><input type="number" id="messagingConversationsStarted">
             </div>
-            <div class="form-row"><label>Views (Video):</label><input type="number" id="views"></div>
+            <div class="form-row"><label
+                title="Views (Video) = Jumlah kali video/reel ditonton. Untuk Reels: jumlah plays. Buka Reels/Video → View Insights → Views/Plays.">Views
+                (Video) ℹ️</label><input type="number" id="views"></div>
             <div style="font-size:12px; font-weight:600; margin-top:10px;">Audience Split (%)</div>
-            <div class="form-row"><label>Views Followers:</label><input type="number" id="viewFollowersPercentage"
-                placeholder="%"></div>
-            <div class="form-row"><label>Views Non-Followers:</label><input type="number"
-                id="viewNonFollowersPercentage" placeholder="%"></div>
-            <div class="form-row"><label>Interact Followers:</label><input type="number" id="intFollowersPercentage"
-                placeholder="%"></div>
-            <div class="form-row"><label>Interact Non-Followers:</label><input type="number"
-                id="intNonFollowersPercentage" placeholder="%"></div>
+            <div class="form-row"><label
+                title="Persentase views yang berasal dari followers kamu. Buka View Insights → Audience Split.">Views
+                Followers ℹ️</label><input type="number" id="viewFollowersPercentage" placeholder="%"></div>
+            <div class="form-row"><label
+                title="Persentase views yang berasal dari non-followers. Buka View Insights → Audience Split.">Views
+                Non-Followers ℹ️</label><input type="number" id="viewNonFollowersPercentage" placeholder="%"></div>
+            <div class="form-row"><label title="Persentase interaksi yang berasal dari followers kamu.">Interact
+                Followers ℹ️</label><input type="number" id="intFollowersPercentage" placeholder="%"></div>
+            <div class="form-row"><label title="Persentase interaksi yang berasal dari non-followers.">Interact
+                Non-Followers ℹ️</label><input type="number" id="intNonFollowersPercentage" placeholder="%"></div>
           </div>
         </div>
       </div>
@@ -257,10 +284,17 @@
           <div style="display:flex; gap:5px;">
             <select id="sortField">
               <option value="date">Tanggal</option>
-              <option value="engagement">Engagement Rate</option>
-              <option value="reach">Reach</option>
-              <option value="impressions">Impressions</option>
-              <option value="likes">Likes</option>
+              <option value="engagement" title="(Likes+Comments+Shares+Saves) ÷ Reach × 100%">Engagement Rate</option>
+              <option value="reach" title="Jumlah akun unik yang melihat post">Reach</option>
+              <option value="impressions" title="Total berapa kali post ditampilkan">Impressions</option>
+              <option value="likes" title="Jumlah orang yang Like post">Likes</option>
+              <option value="comments" title="Jumlah komentar pada post">Comments</option>
+              <option value="shares" title="Berapa kali post dibagikan">Shares</option>
+              <option value="saves" title="Berapa kali post disimpan/bookmark">Saves</option>
+              <option value="follows" title="Jumlah follow baru dari post ini">Follows</option>
+              <option value="profileVisits" title="Berapa kali profil dikunjungi dari post ini">Profile Visits</option>
+              <option value="externalLinkTaps" title="Berapa kali link di-tap dari post ini">Link Taps</option>
+              <option value="views" title="Jumlah views untuk video/reels">Video Views</option>
             </select>
             <select id="sortDir">
               <option value="none">Desc (Date)</option>
@@ -296,12 +330,12 @@
               <tr>
                 <th width="100">Tanggal</th>
                 <th>Detail Post</th>
-                <th width="70">Reach</th>
-                <th width="70">Impr</th>
-                <th width="60">Likes</th>
-                <th width="60">Comm</th>
+                <th width="70" title="Reach = Jumlah akun unik yang melihat postingan">Reach</th>
+                <th width="70" title="Impressions = Total berapa kali postingan ditampilkan">Impr</th>
+                <th width="60" title="Likes = Jumlah orang yang menekan Love">Likes</th>
+                <th width="60" title="Comments = Jumlah komentar pada postingan">Comm</th>
                 <!-- Saves and Visits removed as per request -->
-                <th width="70">Eng%</th>
+                <th width="70" title="Engagement Rate = (Likes+Comments+Shares+Saves) ÷ Reach × 100%">Eng%</th>
                 <th width="140">Aksi</th>
               </tr>
             </thead>

@@ -337,8 +337,92 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             Array.from(set).sort().forEach(m => { const opt = document.createElement('option'); opt.value = m; opt.textContent = m; select2.appendChild(opt); });
             if ([...select2.options].some(o => o.value === prev2)) select2.value = prev2;
         }
+        // update KPI cards when month options change
+        try { updateMonthlyMetricsDisplay(); } catch (e) { }
     }
     window.generateMonthOptions = generateMonthOptions;
+
+    // generic monthly sum calculator for any numeric field
+    function calculateMonthlySum(field, month) {
+        let total = 0;
+        Object.keys(dataStore.posts || {}).forEach(d => {
+            if (!d) return;
+            if (month && month !== 'all' && !d.startsWith(month)) return;
+            const p = dataStore.posts[d] || {};
+            const items = Array.isArray(p._items) ? p._items : [];
+            items.forEach(it => { total += +(it[field] || 0); });
+        });
+        return total;
+    }
+
+    function updateMonthlyMetricsDisplay() {
+        const sel = document.getElementById('monthFilter');
+        const month = sel ? sel.value : 'all';
+        // map fields to element ids
+        const map = [
+            { id: 'monthlyReachTotal', field: 'reach' },
+            { id: 'monthlyImpressionsTotal', field: 'impressions' },
+            { id: 'monthlyLikesTotal', field: 'likes' },
+            { id: 'monthlyCommentsTotal', field: 'comments' },
+            { id: 'monthlySharesTotal', field: 'shares' },
+            { id: 'monthlySavesTotal', field: 'saves' },
+            { id: 'monthlyWebsiteClicksTotal', field: 'externalLinkTaps' }
+        ];
+        map.forEach(m => {
+            const el = document.getElementById(m.id);
+            if (!el) return;
+            const val = calculateMonthlySum(m.field, month);
+            // format with thousands separator
+            el.innerText = (typeof val === 'number') ? val.toLocaleString() : '0';
+        });
+    }
+    window.updateMonthlyMetricsDisplay = updateMonthlyMetricsDisplay;
+
+    // update when month filter changes
+    (function attachMonthFilterListener() {
+        const el = document.getElementById('monthFilter');
+        if (!el) return;
+        el.addEventListener('change', function () {
+            try { updateMonthlyMetricsDisplay(); } catch (e) { }
+            try { updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); } catch (e) { }
+        });
+    })();
+
+    // delete posts by selected month (or all)
+    function deletePostsByMonth() {
+        const sel = document.getElementById('monthFilter');
+        if (!sel) return alert('Tidak menemukan kontrol filter bulan.');
+        const month = sel.value;
+        if (!month) return alert('Pilih bulan terlebih dahulu.');
+        const confirmMsg = (month === 'all')
+            ? 'Hapus SEMUA data pada database? Tindakan ini tidak dapat dibatalkan. Lanjutkan?'
+            : 'Hapus semua post untuk bulan ' + month + '? Tindakan ini tidak dapat dibatalkan. Lanjutkan?';
+        if (!confirm(confirmMsg)) return;
+
+        const keys = Object.keys(window.dataStore.posts || {});
+        let removed = 0;
+        keys.forEach(k => {
+            if (month === 'all' || (k && k.indexOf(month) === 0)) {
+                delete window.dataStore.posts[k];
+                removed++;
+            }
+        });
+
+        // refresh UI and options
+        try { generateMonthOptions(); } catch (e) { }
+        if (typeof renderTableFilteredSorted === 'function') renderTableFilteredSorted();
+        else if (typeof renderTableFiltered === 'function') renderTableFiltered();
+        try { renderTagCloud(); } catch (e) { }
+        try { updateMonthlyMetricsDisplay(); } catch (e) { }
+
+        if (removed) alert('Berhasil menghapus data untuk ' + removed + ' tanggal.');
+        else alert('Tidak ada data yang dihapus untuk pilihan ini.');
+
+        if (typeof saveData === 'function') {
+            try { saveData(); } catch (e) { }
+        }
+    }
+    window.deletePostsByMonth = deletePostsByMonth;
 
     function generateProfileMonthOptions() {
         const select = document.getElementById("profileMonthFilter");
@@ -383,8 +467,11 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const p = dataStore.profile || {};
         const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v === undefined || v === null) ? 0 : v; };
         if (document.getElementById("username")) document.getElementById("username").value = p.username || "";
-        setVal("followersStart", p.followersStart || 0);
-        setVal("followersEnd", p.followersEnd || 0);
+        // Default: followersStart editable when no snapshot selected; renderProfileInputs used for 'all' state
+        const fs = document.getElementById("followersStart");
+        const fe = document.getElementById("followersEnd");
+        if (fs) { fs.value = (p.followersStart || 0); fs.disabled = false; }
+        if (fe) { fe.value = (p.followersEnd || 0); fe.disabled = false; }
         setVal("age18_24", p.ageRange?.["18-24"] || 0);
         setVal("age25_34", p.ageRange?.["25-34"] || 0);
         setVal("age35_44", p.ageRange?.["35-44"] || 0);
@@ -431,29 +518,9 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const growth = end - start;
         const growthRate = start > 0 ? (growth / start) * 100 : 0;
 
-        let totalReach = 0, totalImpr = 0, totalEng = 0, count = 0;
-        Object.keys(dataStore.posts || {}).forEach(k => {
-            const p = dataStore.posts[k] || {};
-            const items = Array.isArray(p._items) ? p._items : [];
-            items.forEach(d => {
-                totalReach += d.reach || 0;
-                totalImpr += d.impressions || 0;
-                const er = (d && d.engagement !== undefined) ? +d.engagement : (d.reach > 0 ? (((d.likes || 0) + (d.comments || 0) + (d.shares || 0) + (d.saves || 0)) / (d.reach || 1) * 100) : 0);
-                totalEng += er; count++;
-            });
-        });
-        const avgReachRate = end > 0 ? (totalReach / end) * 100 : 0;
-        const avgEngagement = count > 0 ? (totalEng / count) : 0;
-
         const setText = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
         setText("followerGrowth", growth);
         setText("growthRate", growthRate.toFixed(1) + "%");
-        setText("reachRate", avgReachRate.toFixed(1) + "%");
-        setText("avgEngagement", avgEngagement.toFixed(1) + "%");
-
-        setText("growthRate", growthRate.toFixed(1) + "%");
-        setText("reachRate", avgReachRate.toFixed(1) + "%");
-        setText("avgEngagement", avgEngagement.toFixed(1) + "%");
 
         // --- ADVANCED INTERACTIVE CHART ---
         renderAdvancedChart();
@@ -1605,8 +1672,20 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const snap = dataStore.profileSnapshots[selected];
         if (!snap) { renderProfileInputs(); updateProfile(); updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); return; }
         document.getElementById("username").value = snap.username || "";
-        document.getElementById("followersStart").value = snap.followersStart || 0;
-        document.getElementById("followersEnd").value = snap.followersEnd || 0;
+        // Determine previous snapshot (if any) and set followersStart to previous followersEnd (read-only)
+        const months = Object.keys(dataStore.profileSnapshots || {}).sort();
+        const idx = months.indexOf(selected);
+        const fsEl = document.getElementById("followersStart");
+        const feEl = document.getElementById("followersEnd");
+        if (idx > 0) {
+            const prev = dataStore.profileSnapshots[months[idx - 1]] || {};
+            const prevFollowers = (prev.followersEnd || prev.followersStart || 0);
+            if (fsEl) { fsEl.value = prevFollowers; fsEl.disabled = true; }
+        } else {
+            // first snapshot: allow editing if no legacy 'mulai' exists
+            if (fsEl) { fsEl.value = (snap.followersStart || dataStore.profile?.followersStart || 0); fsEl.disabled = false; }
+        }
+        if (feEl) { feEl.value = snap.followersEnd || 0; feEl.disabled = false; }
         document.getElementById("age18_24").value = snap.ageRange?.["18-24"] || 0;
         document.getElementById("age25_34").value = snap.ageRange?.["25-34"] || 0;
         document.getElementById("age35_44").value = snap.ageRange?.["35-44"] || 0;
@@ -1830,6 +1909,16 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
             const month = document.getElementById('monthFilter')?.value || 'all';
             const totals = computeTotalsOnSnapshot(window.dataStore || {}, month);
+            // determine initial followers (from earliest profile snapshot or legacy profile.start)
+            function getInitialFollowers() {
+                const snaps = Object.keys(dataStore.profileSnapshots || {}).sort();
+                if (snaps.length > 0) {
+                    const first = dataStore.profileSnapshots[snaps[0]] || {};
+                    return first.followersStart || first.followersEnd || (dataStore.profile && dataStore.profile.followersStart) || 0;
+                }
+                return (dataStore.profile && dataStore.profile.followersStart) || 0;
+            }
+            const initialFollowers = getInitialFollowers();
             // build badges order: posts, reach, impressions, likes, comments, shares, saves, websiteClicks
             const html = [
                 mkBadgeHTML('Postingan', totals.posts),
@@ -1842,6 +1931,12 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 mkBadgeHTML('Website Clicks', totals.websiteClicks)
             ].join('');
             wrap.innerHTML = html;
+
+            // Render the initial followers badge under the follower-growth calculator if placeholder exists
+            try {
+                const target = document.getElementById('initialFollowersBadgeWrap');
+                if (target) target.innerHTML = mkBadgeHTML('Followers Awal', initialFollowers);
+            } catch (e) { /* ignore */ }
         } catch (e) { console.error('updateStatsUI', e); }
     }
 

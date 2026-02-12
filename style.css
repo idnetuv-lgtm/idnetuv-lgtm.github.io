@@ -146,6 +146,34 @@ button.btn-danger {
   background: var(--danger-color);
 }
 
+button.btn-small {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+/* Small square red delete button next to month dropdown */
+#deleteMonthBtn.btn-danger {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border-radius: 6px;
+}
+#deleteMonthBtn.btn-danger:hover {
+  filter: brightness(0.95);
+}
+
+/* Keep month dropdown compact so the delete button stays next to it */
+#monthFilter {
+  flex: 0 0 auto;
+  width: 170px;
+  min-width: 140px;
+}
+
 button.btn-flat {
   background: transparent;
   color: var(--text-color);

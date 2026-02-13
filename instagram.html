@@ -98,7 +98,17 @@
         <div style="margin-bottom:15px; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h4 style="margin:0;">Custom Performance Chart</h4>
-            <button class="btn-primary btn-small" onclick="updateProfile()">🔄 Update Chart</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-primary btn-small" onclick="updateProfile()">🔄 Update Chart</button>
+              <span id="chartSelectionBadge" class="insight-badge" style="margin-left:6px; font-size:12px; padding:6px 8px;">0 posts</span>
+              <label class="switch-label" style="font-size:12px; margin-left:8px; display:inline-flex; align-items:center; gap:8px; color:#555;">
+                <span>Glow</span>
+                <span class="switch">
+                  <input type="checkbox" id="chartAnimateToggle" checked>
+                  <span class="switch-slider"></span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start;">
@@ -288,6 +298,7 @@
           <div style="display:flex; gap:5px;">
             <select id="sortField">
               <option value="date">Tanggal</option>
+              <option value="rank" title="Pilih untuk mengurutkan berdasarkan peringkat (rank)">Rank</option>
               <option value="engagement" title="(Likes+Comments+Shares+Saves) ÷ Reach × 100%">Engagement Rate</option>
               <option value="reach" title="Jumlah akun unik yang melihat post">Reach</option>
               <option value="impressions" title="Total berapa kali post ditampilkan">Impressions</option>
@@ -478,6 +489,10 @@
     </div>
 
     <script src="script.js"></script>
+
+    <footer id="siteFooter" style="text-align:center; padding:12px 10px; color:#777; font-size:13px;">
+      © 2025 Arghi M.s. All rights reserved.
+    </footer>
 </body>
 
 </html>

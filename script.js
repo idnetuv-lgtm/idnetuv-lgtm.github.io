@@ -573,6 +573,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             pill.onclick = function () {
                 // toggle without a maximum limit
                 this.classList.toggle('active');
+                try { renderAdvancedChart(); } catch (e) { }
             };
 
             container.appendChild(pill);
@@ -600,6 +601,68 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
     function renderAdvancedChart() {
         initChartControls();
 
+        // define glow plugin once (idempotent)
+        if (!window._chartGlowPluginRegistered) {
+            const glowPlugin = {
+                id: 'glowPlugin',
+                // apply glow per dataset so color can match dataset borderColor
+                beforeDatasetDraw(chart, args, options) {
+                    const opt = options || chart.options.plugins.glowPlugin || {};
+                    if (!opt.enabled) return;
+                    const ctx = chart.ctx;
+                    const dsIndex = args.index;
+                    const ds = chart.data && chart.data.datasets && chart.data.datasets[dsIndex];
+                    if (!ds) return;
+                    // compute glow based on chart phase
+                    const phase = chart._glowPhase || 0;
+                    const factor = 0.5 + 0.5 * Math.sin(phase);
+                    // soften overall effect by reducing multiplier and default max
+                    const glowMax = (opt.glowMax || 8);
+                    const glow = glowMax * factor * 0.6;
+                    ctx.save();
+                    // prefer dataset borderColor, fallback to plugin color
+                    let color = ds.borderColor || opt.color || '#ffb600';
+                    // if hex, convert to rgba with softer alpha
+                    if (typeof color === 'string' && color[0] === '#') {
+                        const r = parseInt(color.slice(1, 3), 16);
+                        const g = parseInt(color.slice(3, 5), 16);
+                        const b = parseInt(color.slice(5, 7), 16);
+                        color = `rgba(${r}, ${g}, ${b}, ${opt.alpha || 0.55})`;
+                    } else if (typeof color === 'string' && color.startsWith('rgb(')) {
+                        // convert rgb(...) to rgba(..., alpha)
+                        color = color.replace(/^rgb\(/, 'rgba(').replace(/\)$/, `, ${opt.alpha || 0.55})`);
+                    }
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = glow;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                },
+                afterDatasetDraw(chart, args) {
+                    try { chart.ctx.restore(); } catch (e) { }
+                }
+            };
+            Chart.register(glowPlugin);
+            window._chartGlowPluginRegistered = true;
+        }
+
+        // Attach change listeners to date inputs once so chart updates when range changes
+        try {
+            ['chartStartDate', 'chartEndDate'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el._chartListenerAdded) {
+                    el.addEventListener('change', renderAdvancedChart);
+                    el.addEventListener('input', renderAdvancedChart);
+                    el._chartListenerAdded = true;
+                }
+            });
+            // animate toggle listener
+            const animToggle = document.getElementById('chartAnimateToggle');
+            if (animToggle && !animToggle._chartListenerAdded) {
+                animToggle.addEventListener('change', function () { renderAdvancedChart(); });
+                animToggle._chartListenerAdded = true;
+            }
+        } catch (e) { }
+
         const canvas = document.getElementById("profileChart");
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
@@ -611,6 +674,17 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         // 2. Filter Dates
         const allDates = Object.keys(dataStore.posts || {}).sort();
         const filteredDates = allDates.filter(d => d >= startStr && d <= endStr);
+
+        // Update badge showing total posts in selected date range
+        try {
+            const badge = document.getElementById('chartSelectionBadge');
+            const totalPosts = filteredDates.reduce((sum, d) => {
+                const p = dataStore.posts[d] || {};
+                const items = Array.isArray(p._items) ? p._items : [];
+                return sum + items.length;
+            }, 0);
+            if (badge) badge.innerText = totalPosts + ' post' + (totalPosts === 1 ? '' : 's');
+        } catch (e) { }
 
         if (filteredDates.length === 0) {
             if (window._profileChart) window._profileChart.destroy();
@@ -701,8 +775,19 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 yAxisID: isY1 ? 'y1' : 'y'
             };
         });
+        // determine whether animations are enabled via UI toggle
+        const animateEnabled = !!document.getElementById('chartAnimateToggle')?.checked;
+        if (!animateEnabled && window._glowRAF) { try { cancelAnimationFrame(window._glowRAF); } catch (e) { } window._glowRAF = null; }
 
-        if (window._profileChart) window._profileChart.destroy();
+        const pluginGlowOpts = { enabled: animateEnabled, color: 'rgba(255,182,0,0.95)', glowMax: 8, alpha: 0.55 };
+        const animationOpts = animateEnabled ? { duration: 900, easing: 'easeOutQuart' } : { duration: 0 };
+
+        if (window._profileChart) {
+            try { window._profileChart.destroy(); } catch (e) { }
+            // stop any running glow RAF
+            try { if (window._glowRAF) cancelAnimationFrame(window._glowRAF); } catch (e) { }
+            window._glowRAF = null;
+        }
 
         // Store meta for interactions
         const metaStore = chartMeta;
@@ -714,6 +799,16 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 datasets: datasets
             },
             options: {
+                animation: animationOpts,
+                // finer-grained property transitions
+                transitions: {
+                    show: {
+                        animations: {
+                            x: { from: 0, duration: 700, easing: 'easeOutCubic' },
+                            y: { from: 0, duration: 700, easing: 'easeOutCubic' }
+                        }
+                    }
+                },
                 responsive: true,
                 interaction: {
                     mode: 'nearest',
@@ -774,6 +869,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                             }
                         }
                     },
+                    glowPlugin: pluginGlowOpts,
                     legend: {
                         labels: { usePointStyle: true, boxWidth: 8 }
                     }
@@ -807,6 +903,26 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 }
             }
         });
+
+        // start glow animation loop for this chart if animations enabled
+        try {
+            if (!animateEnabled) {
+                if (window._glowRAF) try { cancelAnimationFrame(window._glowRAF); } catch (e) { }
+                window._glowRAF = null;
+            } else {
+                if (window._glowRAF) try { cancelAnimationFrame(window._glowRAF); } catch (e) { }
+                const chart = window._profileChart;
+                chart._glowPhase = chart._glowPhase || 0;
+                function glowLoop() {
+                    // smaller increment -> slower pulsing
+                    chart._glowPhase = (chart._glowPhase || 0) + 0.02;
+                    if (chart._glowPhase > Math.PI * 2) chart._glowPhase -= Math.PI * 2;
+                    try { chart.draw(); } catch (e) { }
+                    window._glowRAF = requestAnimationFrame(glowLoop);
+                }
+                window._glowRAF = requestAnimationFrame(glowLoop);
+            }
+        } catch (e) { }
     }
 
     // engagement calculator
@@ -1067,6 +1183,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         renderPostItemsForDate(date);
         // mark Load JSON button as loaded (disable animated stroke)
         try { setLoadJsonLoaded(true); } catch (e) { }
+        try { renderAdvancedChart(); } catch (e) { }
     }
     window.saveData = saveData;
 
@@ -1139,10 +1256,38 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         // sorting
         const sortField = document.getElementById('sortField')?.value || 'date';
         const sortDir = document.getElementById('sortDir')?.value || 'none';
+
+        // Precompute score and ranks (used for rank badges and sort by rank)
+        const rankMap = new Map();
+        try {
+            // New weighted Score formula per user request:
+            // Score = (Reach × 1/2) + (Impressions × 1/2) + (Likes × 1) + (Comments × 3) + (Shares × 4) + (Saves × 4)
+            const calcScore = d => {
+                const reach = +(d?.reach || 0);
+                const impressions = +(d?.impressions || 0);
+                const likes = +(d?.likes || 0);
+                const comments = +(d?.comments || 0);
+                const shares = +(d?.shares || 0);
+                const saves = +(d?.saves || 0);
+                return (reach * 0.5) + (impressions * 0.5) + (likes * 1) + (comments * 3) + (shares * 4) + (saves * 4);
+            };
+            const scored = filtered.map(e => ({ token: e.token, score: calcScore(e.data) }));
+            scored.sort((a, b) => b.score - a.score);
+            scored.forEach((s, idx) => { rankMap.set(s.token, idx + 1); });
+        } catch (e) {
+            // non-fatal
+        }
         if (sortDir && sortDir !== 'none') {
             filtered.sort((a, b) => {
                 let va, vb;
                 if (sortField === 'date') { va = a.date; vb = b.date; }
+                else if (sortField === 'rank') {
+                    // lower rank number is better (1 is top)
+                    va = rankMap.get(a.token) || 999999; vb = rankMap.get(b.token) || 999999;
+                    if (sortDir === 'highest') return va - vb; // show top ranks first
+                    if (sortDir === 'lowest') return vb - va;
+                    return 0;
+                }
                 else if (sortField === 'engagement') {
                     const calc = d => (d && d.engagement !== undefined) ? +d.engagement : ((d && d.reach) ? (((d.likes || 0) + (d.comments || 0) + (d.shares || 0) + (d.saves || 0)) / (d.reach || 1) * 100) : 0);
                     va = calc(a.data); vb = calc(b.data);
@@ -1157,6 +1302,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         } else {
             filtered.sort((a, b) => b.date.localeCompare(a.date));
         }
+        
 
         // Build sort badge labels map
         const sortLabelMap = {
@@ -1179,6 +1325,20 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
             // Badge for sorted metric (only when sorting by a non-date metric)
             let sortBadgeHtml = '';
+            // Rank badges for all ranks: #1..n; top 3 get blue, others grey. Hover shows calculation info.
+            let rankBadgeHtml = '';
+            let rankStarHtml = '';
+            try {
+                const rank = rankMap.get(entry.token);
+                if (rank) {
+                    const tooltip = "Peringkat dihitung dari Score = (Reach × 1/2) + (Impressions × 1/2) + (Likes × 1) + (Comments × 3) + (Shares × 4) + (Saves × 4).";
+                    const cls = (rank <= 3) ? 'top' : 'other';
+                    rankBadgeHtml = `<span class="rank-badge ${cls}" title="${tooltip}">#${rank}</span>`;
+                    if (rank === 1) {
+                        rankStarHtml = `<span class="top-rank-star" title="${tooltip}">★</span>`;
+                    }
+                }
+            } catch (e) { }
             if (sortField !== 'date' && sortDir !== 'none' && sortLabelMap[sortField]) {
                 let badgeVal;
                 if (sortField === 'engagement') {
@@ -1192,7 +1352,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             const meta = (tagHtml || titleHtml || notesHtml) ? `<div style="margin-top:6px; text-align:left;">${tagHtml}${titleHtml}${notesHtml}</div>` : "";
             const row = `<tr>
         <td>${escapeHtml(date)}</td>
-        <td style="text-align:left;">${sortBadgeHtml}${linkHtml}${meta}</td>
+        <td style="text-align:left;">${rankStarHtml}${rankBadgeHtml}${sortBadgeHtml}${linkHtml}${meta}</td>
         <td>${d.reach || 0}</td>
         <td>${d.impressions || 0}</td>
         <td>${d.likes || 0}</td>
@@ -1456,6 +1616,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         try { window.pushHistory(`Edit: ${diffStr}`); } catch (e) { }
         // mark Load JSON as loaded (disable animated stroke) when edits are saved
         try { setLoadJsonLoaded(true); } catch (e) { }
+        try { renderAdvancedChart(); } catch (e) { }
     }
     window.saveEditData = saveEditData;
 
@@ -1524,6 +1685,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                         loadBtn.classList.add('loaded');
                     }
                 } catch (e) { /* ignore */ }
+
+                try { renderAdvancedChart(); } catch (e) { }
 
                 alert("Data JSON berhasil dimuat! (" + Object.keys(dataStore.posts || {}).length + " tanggal, " + Object.keys(dataStore.profileSnapshots || {}).length + " snapshot)");
             } catch (err) {
@@ -1684,11 +1847,11 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         dataStore.profileSnapshots[month] = snap;
         generateProfileMonthOptions();
         alert("Snapshot profile tersimpan untuk " + month);
+        try { setLoadJsonLoaded(true); } catch (e) { }
+        try { renderAdvancedChart(); } catch (e) { }
     }
     window.saveProfileSnapshot = saveProfileSnapshot;
 
-    // when saving a profile snapshot, treat as data processed and disable Load JSON animation
-    try { setLoadJsonLoaded(true); } catch (e) { }
 
     function loadProfileSnapshot() {
         const selected = document.getElementById("profileMonthFilter")?.value;

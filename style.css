@@ -452,6 +452,66 @@ canvas {
   background: #fff;
 }
 
+/* Footer styling */
+#siteFooter {
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+/* Small switch control for chart animation */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  vertical-align: middle;
+}
+.switch input { /* hide native checkbox */
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #eee; /* off track */
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,0.06);
+  box-sizing: border-box;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s;
+}
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #fff; /* thumb off */
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  transition: transform 0.18s cubic-bezier(.2,.9,.3,1), box-shadow 0.18s;
+}
+.switch input:checked + .switch-slider {
+  background: #fff; /* keep track light when on */
+  border-color: #8a00ff; /* purple accent on */
+  box-shadow: 0 0 0 4px rgba(138,0,255,0.06);
+}
+.switch input:checked + .switch-slider::before {
+  /* move slightly less to leave gap from track edge */
+  transform: translateY(-50%) translateX(14px);
+  background: #8a00ff; /* thumb on color */
+  box-shadow: 0 6px 14px rgba(138,0,255,0.10);
+}
+.switch-label span { user-select: none; }
+
 /* Attention animation for footer Load JSON button */
 #loadJsonFooterBtn.pulse-attention,
 label[for="jsonFileFooter"].pulse-attention {
@@ -559,4 +619,43 @@ label[for="jsonFileFooter"].loaded.stroke-loop::after {
   border-color: rgba(0,0,0,0) !important;
   box-shadow: none !important;
   opacity: 0 !important;
+}
+
+/* Rank badges */
+.rank-badge {
+  display: inline-block;
+  background: #1976d2; /* blue */
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.rank-badge.other {
+  background: #9e9e9e; /* grey for ranks > 3 */
+}
+
+.rank-badge.top {
+  background: #1976d2; /* explicit top color */
+}
+
+/* Top 1 star with subtle gold glow */
+.top-rank-star {
+  display: inline-block;
+  color: #ffb600; /* gold */
+  font-size: 14px;
+  margin-right: 6px;
+  vertical-align: middle;
+  text-shadow: 0 0 6px rgba(255,182,0,0.9), 0 0 12px rgba(255,182,0,0.55);
+  -webkit-text-stroke: 0.2px rgba(0,0,0,0.06);
+  animation: topStarPulse 1600ms ease-in-out infinite;
+}
+
+@keyframes topStarPulse {
+  0% { text-shadow: 0 0 4px rgba(255,182,0,0.7), 0 0 8px rgba(255,182,0,0.35); transform: scale(1); }
+  50% { text-shadow: 0 0 10px rgba(255,182,0,0.95), 0 0 18px rgba(255,182,0,0.5); transform: scale(1.06); }
+  100% { text-shadow: 0 0 4px rgba(255,182,0,0.7), 0 0 8px rgba(255,182,0,0.35); transform: scale(1); }
 }

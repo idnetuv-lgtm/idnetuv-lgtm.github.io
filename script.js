@@ -571,16 +571,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             }
 
             pill.onclick = function () {
-                if (this.classList.contains('active')) {
-                    this.classList.remove('active');
-                } else {
-                    const activeCount = container.querySelectorAll('.metric-toggle.active').length;
-                    if (activeCount >= 5) {
-                        alert('Maksimal 5 metrik.');
-                        return;
-                    }
-                    this.classList.add('active');
-                }
+                // toggle without a maximum limit
+                this.classList.toggle('active');
             };
 
             container.appendChild(pill);

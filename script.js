@@ -430,8 +430,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const prev = select.value || "all";
         select.innerHTML = '<option value="all">Semua</option>';
         const set = new Set();
+        // months only follow actual post months (no manual addition)
         Object.keys(dataStore.posts || {}).forEach(d => { if (d && d.length >= 7) set.add(d.slice(0, 7)); });
-        Object.keys(dataStore.profileSnapshots || {}).forEach(m => set.add(m));
         Array.from(set).sort().forEach(m => { const opt = document.createElement('option'); opt.value = m; opt.textContent = m; select.appendChild(opt); });
         if ([...select.options].some(o => o.value === prev)) select.value = prev;
     }
@@ -1829,26 +1829,9 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
     // snapshots
     function saveProfileSnapshot() {
-        const month = document.getElementById("profileMonthInput")?.value;
-        if (!month) return alert("Silakan pilih bulan (YYYY-MM) untuk menyimpan snapshot.");
-        const snap = {
-            username: normalizeUsername(document.getElementById("username")?.value || ""),
-            followersStart: +document.getElementById("followersStart")?.value || 0,
-            followersEnd: +document.getElementById("followersEnd")?.value || 0,
-            ageRange: {
-                "18-24": +document.getElementById("age18_24")?.value || 0,
-                "25-34": +document.getElementById("age25_34")?.value || 0,
-                "35-44": +document.getElementById("age35_44")?.value || 0,
-                "45-54": +document.getElementById("age45_54")?.value || 0,
-                "55-64": +document.getElementById("age55_64")?.value || 0
-            },
-            gender: { male: +document.getElementById("male")?.value || 0, female: +document.getElementById("female")?.value || 0 }
-        };
-        dataStore.profileSnapshots[month] = snap;
-        generateProfileMonthOptions();
-        alert("Snapshot profile tersimpan untuk " + month);
-        try { setLoadJsonLoaded(true); } catch (e) { }
-        try { renderAdvancedChart(); } catch (e) { }
+        // Manual snapshot saving has been deprecated.
+        // Snapshots are now managed automatically from posts and via save/export of the full data (Save Post / Auto save / Export JSON).
+        alert("Fitur Simpan Snapshot Bulan telah dinonaktifkan. Gunakan Simpan Post / Auto Save / Export JSON untuk menyimpan data profil.");
     }
     window.saveProfileSnapshot = saveProfileSnapshot;
 
@@ -1856,7 +1839,6 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
     function loadProfileSnapshot() {
         const selected = document.getElementById("profileMonthFilter")?.value;
         if (!selected || selected === "all") { renderProfileInputs(); updateProfile(); updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); return; }
-        document.getElementById("profileMonthInput").value = selected;
         const snap = dataStore.profileSnapshots[selected];
         if (!snap) { renderProfileInputs(); updateProfile(); updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); return; }
         document.getElementById("username").value = snap.username || "";

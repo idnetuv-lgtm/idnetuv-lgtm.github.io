@@ -451,3 +451,112 @@ canvas {
 .metric-toggle.active .toggle-dot {
   background: #fff;
 }
+
+/* Attention animation for footer Load JSON button */
+#loadJsonFooterBtn.pulse-attention,
+label[for="jsonFileFooter"].pulse-attention {
+  animation: popHighlight 1200ms cubic-bezier(.2,.9,.3,1) 0s 3;
+  transform-origin: center center;
+}
+
+@keyframes popHighlight {
+  0% {
+    transform: scale(1);
+    background-color: transparent;
+    box-shadow: none;
+  }
+  30% {
+    transform: scale(1.14);
+    background-color: #fff59d; /* soft yellow */
+    box-shadow: 0 8px 26px rgba(255,235,59,0.25);
+  }
+  60% {
+    transform: scale(0.98);
+    background-color: #fff59d;
+    box-shadow: 0 6px 18px rgba(255,235,59,0.18);
+  }
+  100% {
+    transform: scale(1);
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* ensure the label looks consistent with btn-secondary but allows bg animation */
+#loadJsonFooterBtn,
+label[for="jsonFileFooter"] {
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.12s ease;
+  background-color: #ffb600;
+  color: #111;
+  border-radius: 6px;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  padding: 6px 12px;
+}
+
+/* Looping yellow stroke around Load JSON button/label */
+#loadJsonFooterBtn.stroke-loop,
+label[for="jsonFileFooter"].stroke-loop {
+  position: relative;
+  display: inline-block;
+}
+
+#loadJsonFooterBtn.stroke-loop::after,
+label[for="jsonFileFooter"].stroke-loop::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 10px;
+  border: 2.5px solid rgba(255,182,0,0);
+  box-shadow: 0 0 0 rgba(255,182,0,0);
+  pointer-events: none;
+  animation: strokeLoop 1600ms ease-in-out infinite;
+}
+
+@keyframes strokeLoop {
+  0% {
+    transform: scale(0.94);
+    border-color: rgba(255,182,0,0);
+    box-shadow: 0 0 0 rgba(255,182,0,0);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1);
+    border-color: rgba(255,182,0,0.95);
+    box-shadow: 0 10px 28px rgba(255,182,0,0.18);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.02);
+    border-color: rgba(255,182,0,0.6);
+    box-shadow: 0 6px 14px rgba(255,182,0,0.12);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.06);
+    border-color: rgba(255,182,0,0);
+    box-shadow: 0 0 0 rgba(255,182,0,0);
+    opacity: 0;
+  }
+}
+
+/* State when JSON has been loaded: grey, no stroke animation */
+#loadJsonFooterBtn.loaded,
+label[for="jsonFileFooter"].loaded {
+  background-color: #9e9e9e !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  cursor: default !important;
+}
+
+#loadJsonFooterBtn.loaded.stroke-loop::after,
+label[for="jsonFileFooter"].loaded.stroke-loop::after {
+  /* hide the animated pseudo-element when loaded */
+  animation: none !important;
+  border-color: rgba(0,0,0,0) !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+}

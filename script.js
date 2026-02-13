@@ -1520,6 +1520,15 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 }
                 updateLastEditedDisplay();
 
+                // turn footer Load JSON button grey and disable animated stroke
+                try {
+                    const loadBtn = document.getElementById('loadJsonFooterBtn') || document.querySelector('label[for="jsonFileFooter"]');
+                    if (loadBtn) {
+                        loadBtn.classList.remove('stroke-loop', 'pulse-attention');
+                        loadBtn.classList.add('loaded');
+                    }
+                } catch (e) { /* ignore */ }
+
                 alert("Data JSON berhasil dimuat! (" + Object.keys(dataStore.posts || {}).length + " tanggal, " + Object.keys(dataStore.profileSnapshots || {}).length + " snapshot)");
             } catch (err) {
                 console.error('loadJson error', err);
@@ -1986,7 +1995,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
           <!-- Group 2: File -->
           <div style="display:flex; align-items:center; gap:10px; font-size:13px;">
-             <label class="btn-secondary" style="margin:0; padding:6px 12px; font-size:13px; font-weight:normal; border-radius:4px; cursor:pointer;" for="jsonFileFooter">📂 Load JSON</label>
+             <label id="loadJsonFooterBtn" class="btn-secondary" style="margin:0; padding:6px 12px; font-size:13px; font-weight:normal; border-radius:4px; cursor:pointer;" for="jsonFileFooter">📂 Load JSON</label>
              <input type="file" id="jsonFileFooter" accept=".json" style="display:none" onchange="window.loadJson(event)">
              <div style="color:#666; display:flex; align-items:center; gap:4px;">Last: <span id="lastEdited">-</span></div>
           </div>
@@ -2052,6 +2061,29 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             document.getElementById('btn-redo')?.addEventListener('click', function () { if (typeof window.redo === 'function') window.redo(); });
             document.getElementById('btn-save-snap')?.addEventListener('click', function () { if (typeof window.pushHistory === 'function') window.pushHistory('manual snapshot'); });
             document.getElementById('btn-clear-history')?.addEventListener('click', function () { if (typeof window.clearHistory === 'function') window.clearHistory(); });
+
+            // Attention animation for Load JSON footer button
+            (function attachLoadJsonAttention() {
+                // select by id or fallback to attribute selector
+                const btn = document.getElementById('loadJsonFooterBtn') || document.querySelector('label[for="jsonFileFooter"]');
+                if (!btn) return;
+                // enable continuous stroke loop
+                btn.classList.add('stroke-loop');
+                // also keep a short pop highlight when triggered programmatically
+                btn.addEventListener('animationend', function (ev) {
+                    // ensure we only remove transient pulse-attention (not the stroke-loop)
+                    if (ev.animationName === 'popHighlight') btn.classList.remove('pulse-attention');
+                });
+                // expose a manual trigger for pulse highlight
+                window.triggerLoadJsonAttention = function () {
+                    const el = document.getElementById('loadJsonFooterBtn') || document.querySelector('label[for="jsonFileFooter"]');
+                    if (!el) return;
+                    el.classList.remove('pulse-attention');
+                    // force reflow to allow re-adding the class
+                    void el.offsetWidth;
+                    el.classList.add('pulse-attention');
+                };
+            })();
 
             // Toggle Log
             document.getElementById('btn-toggle-log')?.addEventListener('click', function () {

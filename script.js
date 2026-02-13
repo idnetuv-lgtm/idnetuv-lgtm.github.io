@@ -1073,6 +1073,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         showSaveNotification("Data tersimpan untuk " + date);
         // re-render items list and keep selection
         renderPostItemsForDate(date);
+        // mark Load JSON button as loaded (disable animated stroke)
+        try { setLoadJsonLoaded(true); } catch (e) { }
     }
     window.saveData = saveData;
 
@@ -1460,6 +1462,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         updateGlobalLastEdited(); // Update timestamp on edit save
 
         try { window.pushHistory(`Edit: ${diffStr}`); } catch (e) { }
+        // mark Load JSON as loaded (disable animated stroke) when edits are saved
+        try { setLoadJsonLoaded(true); } catch (e) { }
     }
     window.saveEditData = saveEditData;
 
@@ -1538,6 +1542,23 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         reader.readAsText(file);
     }
     window.loadJson = loadJson;
+
+    // Utility: mark footer Load JSON label as loaded (grey + disable stroke)
+    function setLoadJsonLoaded(state) {
+        try {
+            const el = document.getElementById('loadJsonFooterBtn') || document.querySelector('label[for="jsonFileFooter"]');
+            if (!el) return;
+            if (state) {
+                el.classList.remove('stroke-loop', 'pulse-attention');
+                el.classList.add('loaded');
+            } else {
+                el.classList.remove('loaded');
+                // re-enable stroke-loop if desired
+                el.classList.add('stroke-loop');
+            }
+        } catch (e) { }
+    }
+    window.setLoadJsonLoaded = setLoadJsonLoaded;
 
     // CSV exports
     function exportCsvPostsMode(mode) {
@@ -1673,6 +1694,9 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         alert("Snapshot profile tersimpan untuk " + month);
     }
     window.saveProfileSnapshot = saveProfileSnapshot;
+
+    // when saving a profile snapshot, treat as data processed and disable Load JSON animation
+    try { setLoadJsonLoaded(true); } catch (e) { }
 
     function loadProfileSnapshot() {
         const selected = document.getElementById("profileMonthFilter")?.value;

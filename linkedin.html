@@ -1,17 +1,16 @@
-<!DOCTYPE html>
 <html lang="id">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Instagram Insight Dashboard</title>
+  <title>LinkedIn Insight Dashboard</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script>
-    window.CURRENT_PLATFORM = 'instagram';
-    window.PLATFORM_NAME = 'Instagram';
+    window.CURRENT_PLATFORM = 'linkedin';
+    window.PLATFORM_NAME = 'LinkedIn';
   </script>
 </head>
 
@@ -19,7 +18,7 @@
 
   <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h2>Instagram Insight Dashboard</h2>
+      <h2>LinkedIn Insight Dashboard</h2>
       <div>
         <button onclick="exportdc()" class="btn-secondary hidden">Export HTML (Legacy)</button>
       </div>
@@ -30,9 +29,9 @@
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3>Profile & Demographics</h3>
         <div class="platform-tabs">
-          <a href="instagram.html" class="tab active"><i class="fa-brands fa-instagram"></i> Instagram</a>
+          <a href="instagram.html" class="tab"><i class="fa-brands fa-instagram"></i> Instagram</a>
           <a href="tiktok.html" class="tab"><i class="fa-brands fa-tiktok"></i> Tiktok</a>
-          <a href="linkedin.html" class="tab"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
+          <a href="linkedin.html" class="tab active"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
         </div>
       </div>
 
@@ -200,25 +199,20 @@
 
         <!-- Metrics -->
         <div style="flex:1; min-width:300px;">
-          <h5>Metrics Utama</h5>
+          <h5>Metrics Utama (LinkedIn)</h5>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <div><label style="display:block;font-size:12px;"
-                title="Reach = Jumlah akun unik yang melihat postingan kamu. Buka Instagram → Post → View Insights → Accounts Reached.">Reach
+                title="Impressions = Jumlah tayangan (digunakan sbg Reach untuk ER).">Impressions
                 ℹ️</label><input type="number" id="reach" style="width:100%"></div>
             <div><label style="display:block;font-size:12px;"
-                title="Impressions = Total berapa kali postingan ditampilkan (termasuk pengguna yang sama). Buka Instagram → Post → View Insights → Impressions.">Impressions
-                ℹ️</label><input type="number" id="impressions" style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;"
-                title="Likes = Jumlah orang yang menekan tombol Love ❤️ di postingan. Terlihat langsung di bawah post atau di Insights.">Likes
+                title="Reactions = Jumlah reaksi (Like, Celebrate, dll).">Reactions
                 ℹ️</label><input type="number" id="likes" style="width:100%"></div>
             <div><label style="display:block;font-size:12px;"
-                title="Comments = Jumlah komentar yang diterima postingan. Terlihat di bawah post atau di View Insights.">Comments
+                title="Comments = Jumlah komentar di post LinkedIn.">Comments
                 ℹ️</label><input type="number" id="comments" style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;"
-                title="Shares = Jumlah kali postingan dibagikan ke Story, DM, atau platform lain. Buka View Insights → Shares.">Shares
+            <div><label style="display:block;font-size:12px;" title="Reposts = Jumlah post dibagikan/repost.">Reposts
                 ℹ️</label><input type="number" id="shares" style="width:100%"></div>
-            <div><label style="display:block;font-size:12px;"
-                title="Saves = Jumlah kali postingan disimpan (bookmark) oleh pengguna. Buka View Insights → Saves.">Saves
+            <div><label style="display:block;font-size:12px;" title="Clicks = Jumlah klik pada post/link.">Clicks
                 ℹ️</label><input type="number" id="saves" style="width:100%"></div>
           </div>
           <div id="engagementRate"
@@ -230,45 +224,15 @@
           <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('hidden')">Metric Lanjutan (Klik
             untuk buka)</div>
           <div class="hidden" style="padding:10px; border:1px solid #eee; border-top:none; background:#fafafa;">
-            <div class="form-row"><label
-                title="Post Interactions = Total interaksi (likes + comments + saves + shares) pada post biasa. Buka View Insights → Post Interactions.">Post
-                Interactions ℹ️</label><input type="number" id="postInteractions"></div>
-            <div class="form-row"><label
-                title="Reels Interactions = Total interaksi (likes + comments + saves + shares) khusus Reels. Buka Reels → View Insights → Interactions.">Reels
-                Interactions ℹ️</label><input type="number" id="reelsInteractions"></div>
-            <div class="form-row"><label
-                title="Profile Activity = Jumlah aksi yang dilakukan orang dari profil kamu setelah melihat post ini. Di View Insights bagian 'Profile Activity'.">Profile
-                Activity ℹ️</label><input type="number" id="profileActivity"></div>
-            <div class="form-row"><label
-                title="Profile Visits = Berapa kali orang mengunjungi profil kamu setelah melihat post ini. View Insights → Profile Visits.">Profile
-                Visits ℹ️</label><input type="number" id="profileVisits"></div>
-            <div class="form-row"><label
-                title="Follows = Jumlah orang yang follow akun kamu setelah melihat post ini. View Insights → Follows.">Follows
+            <div class="form-row"><label title="Followers = Pertumbuhan follower baru dari post ini.">Follows
                 ℹ️</label><input type="number" id="follows"></div>
-            <div class="form-row"><label
-                title="Ext. Link Taps = Berapa kali link di bio/sticker di-tap dari post ini. View Insights → External Link Taps.">Ext.
-                Link Taps ℹ️</label><input type="number" id="externalLinkTaps"></div>
-            <div class="form-row"><label
-                title="Business Addr Taps = Berapa kali alamat bisnis di-tap dari post ini. View Insights → Business Address Taps.">Business
-                Addr Taps ℹ️</label><input type="number" id="businessAddressTaps"></div>
-            <div class="form-row"><label
-                title="Msg Started = Jumlah percakapan baru yang dimulai dari post ini. View Insights → Messaging Conversations Started.">Msg
-                Started ℹ️</label><input type="number" id="messagingConversationsStarted">
-            </div>
-            <div class="form-row"><label
-                title="Views (Video) = Jumlah kali video/reel ditonton. Untuk Reels: jumlah plays. Buka Reels/Video → View Insights → Views/Plays.">Views
-                (Video) ℹ️</label><input type="number" id="views"></div>
+            <div class="form-row"><label title="Profile Views = Kunjungan profil dari post ini.">Profile Views
+                ℹ️</label><input type="number" id="profileVisits"></div>
             <div style="font-size:12px; font-weight:600; margin-top:10px;">Audience Split (%)</div>
-            <div class="form-row"><label
-                title="Persentase views yang berasal dari followers kamu. Buka View Insights → Audience Split.">Views
-                Followers ℹ️</label><input type="number" id="viewFollowersPercentage" placeholder="%"></div>
-            <div class="form-row"><label
-                title="Persentase views yang berasal dari non-followers. Buka View Insights → Audience Split.">Views
-                Non-Followers ℹ️</label><input type="number" id="viewNonFollowersPercentage" placeholder="%"></div>
-            <div class="form-row"><label title="Persentase interaksi yang berasal dari followers kamu.">Interact
-                Followers ℹ️</label><input type="number" id="intFollowersPercentage" placeholder="%"></div>
-            <div class="form-row"><label title="Persentase interaksi yang berasal dari non-followers.">Interact
-                Non-Followers ℹ️</label><input type="number" id="intNonFollowersPercentage" placeholder="%"></div>
+            <div class="form-row"><label title="Persentase views yang berasal dari followers.">Views Followers
+                ℹ️</label><input type="number" id="viewFollowersPercentage" placeholder="%"></div>
+            <div class="form-row"><label title="Persentase views yang berasal dari non-followers.">Views Non-Followers
+                ℹ️</label><input type="number" id="viewNonFollowersPercentage" placeholder="%"></div>
           </div>
         </div>
       </div>
@@ -358,12 +322,12 @@
               <tr>
                 <th width="100">Tanggal</th>
                 <th>Detail Post</th>
-                <th width="70" title="Reach = Jumlah akun unik yang melihat postingan">Reach</th>
-                <th width="70" title="Impressions = Total berapa kali postingan ditampilkan">Impr</th>
-                <th width="60" title="Likes = Jumlah orang yang menekan Love">Likes</th>
-                <th width="60" title="Comments = Jumlah komentar pada postingan">Comm</th>
-                <!-- Saves and Visits removed as per request -->
-                <th width="70" title="Engagement Rate = (Likes+Comments+Shares+Saves) ÷ Reach × 100%">Eng%</th>
+                <th width="70" title="Impressions = Total tayangan post">Impr</th>
+                <th width="60" title="Reactions = Jumlah reaksi">React</th>
+                <th width="60" title="Comments = Jumlah komentar">Comm</th>
+                <th width="60" title="Reposts = Jumlah repost">Repost</th>
+                <th width="60" title="Clicks = Jumlah klik">Clicks</th>
+                <th width="70" title="Engagement Rate = (React+Comm+Repost+Clicks) ÷ Impr × 100%">Eng%</th>
                 <th width="140">Aksi</th>
               </tr>
             </thead>
@@ -373,7 +337,6 @@
           </table>
         </div>
       </div>
-
     </div>
 
     <!-- Edit Modal -->
@@ -411,23 +374,23 @@
             style="margin-top:0; margin-bottom:10px; font-size:14px; color:#333; border-bottom:1px solid #f0f0f0; padding-bottom:5px;">
             Metrik Utama</h4>
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
-            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Reach</label><input
+            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Impressions</label><input
                 type="number" id="editReach" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
             </div>
-            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Impressions</label><input
+            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Views (N/A)</label><input
                 type="number" id="editImpressions"
                 style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
-            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Likes</label><input
+            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Reactions</label><input
                 type="number" id="editLikes" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
             </div>
             <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Comments</label><input
                 type="number" id="editComments"
                 style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
-            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Shares</label><input
+            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Reposts</label><input
                 type="number" id="editShares"
                 style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
             </div>
-            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Saves</label><input
+            <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Clicks</label><input
                 type="number" id="editSaves" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
             </div>
           </div>
@@ -537,27 +500,21 @@
             </ol>
           </div>
 
-          <!-- Platform Instructions Tabs -->
           <div class="ext-platform-tabs">
             <button class="ext-tab-btn active" onclick="extSwitchTab(this,'tab-ig')">📸 Instagram</button>
             <button class="ext-tab-btn" onclick="extSwitchTab(this,'tab-tt')">🎵 TikTok</button>
             <button class="ext-tab-btn" onclick="extSwitchTab(this,'tab-li')">💼 LinkedIn</button>
           </div>
 
-          <!-- Instagram Steps -->
           <div id="tab-ig" class="ext-tab-panel active">
             <ol class="ext-steps">
               <li>Buka <strong>Instagram</strong> di Chrome (instagram.com), lalu buka salah satu postingan Anda.</li>
               <li>Klik <strong>"View Insights"</strong> pada postingan.</li>
               <li>Klik ikon ekstensi 🧩 di toolbar Chrome → klik <strong>"Scrape Insights"</strong>.</li>
-              <li>Data tersalin otomatis ke clipboard. Kembali ke dashboard ini.</li>
-              <li>Pada bagian <strong>"Import Otomatis (Paste Text)"</strong>, paste data → klik <strong>"Isi Formulir
-                  Otomatis"</strong>.</li>
-              <li>Klik <strong>"💾 SIMPAN POST DATA"</strong>.</li>
+              <li>Paste data ke bagian <strong>"Import Otomatis"</strong> di dashboard Instagram → klik <strong>"Isi
+                  Formulir Otomatis"</strong> → Simpan.</li>
             </ol>
           </div>
-
-          <!-- TikTok Steps -->
           <div id="tab-tt" class="ext-tab-panel">
             <ol class="ext-steps">
               <li>Buka <strong>TikTok Studio</strong> (studio.tiktok.com) di Chrome.</li>
@@ -567,19 +524,17 @@
               <li>Paste data ke bagian <strong>"Import Otomatis"</strong> di dashboard TikTok → klik <strong>"Isi
                   Formulir Otomatis"</strong> → Simpan.</li>
               <li><em>Atau:</em> gunakan fitur <strong>"Import CSV/Excel"</strong> untuk import banyak postingan
-                sekaligus langsung dari file export TikTok Studio.</li>
+                sekaligus.</li>
             </ol>
           </div>
-
-          <!-- LinkedIn Steps -->
           <div id="tab-li" class="ext-tab-panel">
             <ol class="ext-steps">
               <li>Buka <strong>LinkedIn</strong> di Chrome, lalu buka halaman analytics postingan Anda.</li>
               <li>Untuk <strong>1 postingan</strong>: klik ikon ekstensi 🧩 → pilih <strong>"Scrape Insights"</strong>.
               </li>
-              <li>Untuk <strong>banyak postingan sekaligus</strong>: buka halaman tabel analytics di LinkedIn, klik ikon
-                ekstensi → pilih <strong>"Bulk Scrape Table"</strong>.</li>
-              <li>Paste data ke bagian <strong>"Import Otomatis"</strong> di dashboard LinkedIn → klik <strong>"Isi
+              <li>Untuk <strong>banyak postingan sekaligus</strong>: buka tabel analytics LinkedIn → klik ikon ekstensi
+                → pilih <strong>"Bulk Scrape Table"</strong>.</li>
+              <li>Paste data ke bagian <strong>"Import Otomatis"</strong> di dashboard LinkedIn ini → klik <strong>"Isi
                   Formulir Otomatis"</strong> → Simpan.</li>
             </ol>
           </div>

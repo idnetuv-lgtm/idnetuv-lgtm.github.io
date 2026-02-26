@@ -13,16 +13,74 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 })();
 
 (function () {
-    // default store
-    window.dataStore = window.dataStore || {
-        profile: { username: "", followersStart: 0, followersEnd: 0, ageRange: { "18-24": 0, "25-34": 0, "35-44": 0, "45-54": 0, "55-64": 0 }, gender: { male: 0, female: 0 } },
-        profileSnapshots: {},
-        posts: {}
+    // 1 JSON for all platforms storage
+    const storageKey = 'insight_data';
+    window.allData = {};
+
+    try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed) {
+                // If it's legacy JSON (has profile directly), wrap it in 'instagram'
+                if (parsed.profile && !parsed.instagram) {
+                    window.allData = { instagram: parsed };
+                } else {
+                    window.allData = parsed;
+                }
+            }
+        }
+    } catch (e) { }
+
+    // Migrate from the temporary split keys if they exist
+    const migrateKey = (key, platName) => {
+        try {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed) window.allData[platName] = parsed;
+                // Optional cleanup: localStorage.removeItem(key);
+            }
+        } catch (e) { }
+    };
+    if (!window.allData.instagram) migrateKey('instagram_insight_data', 'instagram');
+    if (!window.allData.tiktok) migrateKey('tiktok_insight_data', 'tiktok');
+    if (!window.allData.linkedin) migrateKey('linkedin_insight_data', 'linkedin');
+
+    const plat = window.CURRENT_PLATFORM || 'instagram';
+
+    // Ensure structure for current platform exists
+    if (!window.allData[plat]) {
+        window.allData[plat] = {
+            profile: { username: "", followersStart: 0, followersEnd: 0, ageRange: { "18-24": 0, "25-34": 0, "35-44": 0, "45-54": 0, "55-64": 0 }, gender: { male: 0, female: 0 } },
+            profileSnapshots: {},
+            posts: {}
+        };
+    }
+
+    // Expose only the current platform's slice to the rest of the app
+    window.dataStore = window.allData[plat];
+
+    window.persistData = function () {
+        if (!window.dataStore) return;
+        window.allData[plat] = window.dataStore; // Sync slice back to parent
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(window.allData));
+        } catch (e) { }
     };
 
     // helpers
     function normalizeUsername(raw) { return raw ? String(raw).trim().replace(/^@+/, "") : ""; }
-    function buildProfileURL(u) { return u ? "https://instagram.com/" + normalizeUsername(u) : ""; }
+    function buildProfileURL(u) {
+        if (!u) return "";
+        let base = "https://instagram.com/";
+        if (window.CURRENT_PLATFORM === 'tiktok') base = "https://tiktok.com/@";
+        else if (window.CURRENT_PLATFORM === 'linkedin') base = "https://linkedin.com/company/"; // assuming company for now, could be in/
+
+        // linkedin doesn't strictly use @ in the URL path, tiktok uses @ inline
+        if (window.CURRENT_PLATFORM === 'tiktok') return base + normalizeUsername(u);
+        return base + normalizeUsername(u);
+    }
     function buildProfileText(u) { return u ? "@" + normalizeUsername(u) : ""; }
     function parseTagsFromString(s) {
         if (!s) return [];
@@ -48,8 +106,11 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             const items = Array.isArray(p._items) ? p._items : [];
             items.forEach(item => {
                 const notes = item.notes || item.contentNotes || "";
-                if (notes) {
-                    const extracted = extractHashtags(notes);
+                const title = item.title || "";
+                // Extract hashtags from both notes AND title
+                const textToScan = notes + " " + title;
+                if (textToScan.trim()) {
+                    const extracted = extractHashtags(textToScan);
                     if (extracted.length > 0) {
                         const currentTags = Array.isArray(item.tags) ? item.tags : [];
                         const merged = [...new Set([...currentTags, ...extracted])];
@@ -531,19 +592,43 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
     }
 
     // --- CHART LOGIC ---
-    const chartMetricsConfig = [
-        { key: 'reach', label: 'Reach', type: 'sum', axis: 'y', tip: 'Jumlah akun unik yang melihat postingan' },
-        { key: 'impressions', label: 'Impressions', type: 'sum', axis: 'y', tip: 'Total berapa kali postingan ditampilkan' },
-        { key: 'likes', label: 'Likes', type: 'sum', axis: 'y', tip: 'Jumlah orang yang Like postingan' },
-        { key: 'comments', label: 'Comments', type: 'sum', axis: 'y', tip: 'Jumlah komentar pada postingan' },
-        { key: 'engagement', label: 'Eng. Rate %', type: 'avg', axis: 'y1', tip: '(Likes+Comments+Shares+Saves) ÷ Reach × 100%' },
-        { key: 'shares', label: 'Shares', type: 'sum', axis: 'y', tip: 'Berapa kali postingan dibagikan ke Story/DM' },
-        { key: 'saves', label: 'Saves', type: 'sum', axis: 'y', tip: 'Berapa kali postingan disimpan (bookmark)' },
-        { key: 'follows', label: 'Follows', type: 'sum', axis: 'y', tip: 'Jumlah follow baru dari postingan ini' },
-        { key: 'profileVisits', label: 'Profile Visits', type: 'sum', axis: 'y', tip: 'Berapa kali profil dikunjungi dari post ini' },
-        { key: 'externalLinkTaps', label: 'Link Taps', type: 'sum', axis: 'y', tip: 'Berapa kali link di-tap dari post ini' },
-        { key: 'views', label: 'Video Views', type: 'sum', axis: 'y', tip: 'Jumlah views untuk video/reels' }
-    ];
+    function getChartMetricsConfig() {
+        if (window.CURRENT_PLATFORM === 'tiktok') {
+            return [
+                { key: 'reach', label: 'Views', type: 'sum', axis: 'y', tip: 'Total tayangan video' },
+                { key: 'likes', label: 'Likes', type: 'sum', axis: 'y', tip: 'Jumlah Suka' },
+                { key: 'comments', label: 'Comments', type: 'sum', axis: 'y', tip: 'Jumlah komentar' },
+                { key: 'shares', label: 'Shares', type: 'sum', axis: 'y', tip: 'Berapa kali postingan dibagikan' },
+                { key: 'saves', label: 'Saves (Favorites)', type: 'sum', axis: 'y', tip: 'Berapa kali disimpan' },
+                { key: 'profileVisits', label: 'Profile Views', type: 'sum', axis: 'y', tip: 'Kunjungan profil dari video ini' },
+                { key: 'follows', label: 'Follows', type: 'sum', axis: 'y', tip: 'Follower baru dari post' },
+                { key: 'engagement', label: 'Eng. Rate %', type: 'avg', axis: 'y1', tip: '(Likes+Comments+Shares+Saves) ÷ Views × 100%' }
+            ];
+        } else if (window.CURRENT_PLATFORM === 'linkedin') {
+            return [
+                { key: 'reach', label: 'Impressions', type: 'sum', axis: 'y', tip: 'Total tayangan' },
+                { key: 'likes', label: 'Reactions', type: 'sum', axis: 'y', tip: 'Jumlah reaksi pada postingan' },
+                { key: 'comments', label: 'Comments', type: 'sum', axis: 'y', tip: 'Jumlah komentar' },
+                { key: 'shares', label: 'Reposts', type: 'sum', axis: 'y', tip: 'Berapa kali postingan dibagikan' },
+                { key: 'saves', label: 'Clicks', type: 'sum', axis: 'y', tip: 'Berapa kali link diklik' },
+                { key: 'engagement', label: 'Eng. Rate %', type: 'avg', axis: 'y1', tip: '(Reactions+Comments+Reposts+Clicks) ÷ Impressions × 100%' }
+            ];
+        }
+
+        return [
+            { key: 'reach', label: 'Reach', type: 'sum', axis: 'y', tip: 'Jumlah akun unik yang melihat postingan' },
+            { key: 'impressions', label: 'Impressions', type: 'sum', axis: 'y', tip: 'Total berapa kali postingan ditampilkan' },
+            { key: 'likes', label: 'Likes', type: 'sum', axis: 'y', tip: 'Jumlah orang yang Like postingan' },
+            { key: 'comments', label: 'Comments', type: 'sum', axis: 'y', tip: 'Jumlah komentar pada postingan' },
+            { key: 'shares', label: 'Shares', type: 'sum', axis: 'y', tip: 'Berapa kali postingan dibagikan ke Story/DM' },
+            { key: 'saves', label: 'Saves', type: 'sum', axis: 'y', tip: 'Berapa kali postingan disimpan (bookmark)' },
+            { key: 'follows', label: 'Follows', type: 'sum', axis: 'y', tip: 'Jumlah follow baru dari postingan ini' },
+            { key: 'profileVisits', label: 'Profile Visits', type: 'sum', axis: 'y', tip: 'Berapa kali profil dikunjungi dari post ini' },
+            { key: 'externalLinkTaps', label: 'Link Taps', type: 'sum', axis: 'y', tip: 'Berapa kali link di-tap dari post ini' },
+            { key: 'views', label: 'Video Views', type: 'sum', axis: 'y', tip: 'Jumlah views untuk video/reels' },
+            { key: 'engagement', label: 'Eng. Rate %', type: 'avg', axis: 'y1', tip: '(Likes+Comments+Shares+Saves) ÷ Reach × 100%' }
+        ];
+    }
 
     // Init metric pill toggles
     const metricColors = ['#2196F3', '#FF9800', '#4CAF50', '#9C27B0', '#F44336', '#00BCD4', '#E91E63'];
@@ -552,7 +637,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const container = document.getElementById('chartMetricsSelector');
         if (!container || container.childElementCount > 0) return;
 
-        chartMetricsConfig.forEach((m, i) => {
+        const currentConfig = getChartMetricsConfig();
+        currentConfig.forEach((m, i) => {
             const pill = document.createElement('div');
             pill.className = 'metric-toggle';
             pill.dataset.key = m.key;
@@ -744,8 +830,9 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
+        const currentConfig = getChartMetricsConfig();
         const datasets = selectedKeys.map((k, i) => {
-            const conf = chartMetricsConfig.find(m => m.key === k);
+            const conf = currentConfig.find(m => m.key === k) || { label: k, axis: 'y' };
             const isY1 = conf.axis === 'y1';
             const color = metricColors[i % metricColors.length];
 
@@ -1022,6 +1109,57 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         };
 
         if (isJson) {
+            if (data.bulk_linkedin && Array.isArray(data.posts)) {
+                let importedCount = 0;
+                data.posts.forEach(post => {
+                    const date = post.date;
+                    if (!window.dataStore.posts[date]) window.dataStore.posts[date] = { _items: [] };
+                    if (!Array.isArray(window.dataStore.posts[date]._items)) window.dataStore.posts[date]._items = [];
+
+                    const newItem = normalizeItem({
+                        title: post.title || 'LinkedIn Post',
+                        link: post.link || '',
+                        reach: post.reach || 0,
+                        impressions: post.impressions || post.reach || 0,
+                        likes: post.likes || 0,
+                        comments: post.comments || 0,
+                        shares: post.shares || 0,
+                        saves: post.saves || 0,
+                        lastEdited: new Date().toISOString()
+                    });
+
+                    window.dataStore.posts[date]._items.push(newItem);
+                    importedCount++;
+                });
+
+                if (importedCount > 0) {
+                    normalizePostsStructure();
+                    if (typeof generateMonthOptions === 'function') generateMonthOptions();
+
+                    // Force save immediately to localStorage
+                    if (typeof window.persistData === 'function') window.persistData();
+
+                    if (typeof renderTableFilteredSorted === 'function') {
+                        renderTableFilteredSorted();
+                    } else if (typeof renderTableFiltered === 'function') {
+                        renderTableFiltered();
+                    }
+
+                    if (typeof updateEngagement === 'function') updateEngagement();
+                    if (typeof updateMonthlyReachDisplay === 'function') updateMonthlyReachDisplay();
+                    if (typeof updateMonthlyImpressionsDisplay === 'function') updateMonthlyImpressionsDisplay();
+
+                    try { window.pushHistory(`Bulk Auto-Imported ${importedCount} LinkedIn posts`); } catch (e) { }
+
+                    alert(`✅ Berhasil melakukan Auto-Import Massal untuk ${importedCount} postingan LinkedIn!`);
+
+                    document.getElementById(prefix ? prefix + 'ExtensionDataPaste' : 'extensionDataPaste').value = '';
+                } else {
+                    alert('Tidak ada data post valid dalam payload Bulk LinkedIn.');
+                }
+                return; // End execution early to avoid normal fallback
+            }
+
             for (const key in data) {
                 const lowerKey = key.toLowerCase().replace(/\s/g, '');
                 const targetField = mapping[lowerKey];
@@ -1092,6 +1230,130 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
     }
     window.importFromExtension = importFromExtension;
 
+    // --- TIKTOK CSV/EXCEL IMPORTER ---
+    function importTiktokCsv() {
+        if (typeof XLSX === 'undefined') {
+            alert('Library SheetJS belum dimuat. Periksa koneksi internet.');
+            return;
+        }
+
+        const fileInput = document.getElementById('tiktokCsvUpload');
+        const file = fileInput?.files[0];
+        if (!file) {
+            alert('Pilih file CSV/Excel dari TikTok Studio terlebih dahulu.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                // Asumsi data berada di sheet pertama
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                // Konversi sheet menjadi array of objects
+                const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                if (rows.length === 0) {
+                    alert('File kosong atau tidak terbaca.');
+                    return;
+                }
+
+                let importedCount = 0;
+                const currentYear = new Date().getFullYear();
+
+                // Pemetaan header berdasarkan typical export TikTok Studio
+                // Format tanggal biasanya: "February 20"
+                // Kolom penting: "Video title", "Video link", "Post time", "Total likes", "Total comments", "Total shares", "Total views"
+
+                rows.forEach(row => {
+                    // Cari field matching terlepas case sensitivity jika mungkin ada update dari TikTok
+                    const getCol = (keyMatch) => {
+                        const key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+                        return key ? row[key] : "";
+                    };
+
+                    const title = getCol("Video title");
+                    const link = getCol("Video link") || getCol("Link");
+                    const postTimeRaw = getCol("Post time") || getCol("Time");
+
+                    const views = parseInt(getCol("Total views") || getCol("Views"), 10) || 0;
+                    const likes = parseInt(getCol("Total likes") || getCol("Likes"), 10) || 0;
+                    const comments = parseInt(getCol("Total comments") || getCol("Comments"), 10) || 0;
+                    const shares = parseInt(getCol("Total shares") || getCol("Shares"), 10) || 0;
+
+                    if (!postTimeRaw) return; // Lewati jika tidak ada tanggal
+
+                    // Normalisasi Tanggal dari "Month DD" (contoh: "February 20")
+                    let dateStr = "";
+                    try {
+                        const parsedDate = new Date(`${postTimeRaw}, ${currentYear}`);
+                        if (!isNaN(parsedDate.getTime())) {
+                            const y = parsedDate.getFullYear();
+                            const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                            const d = String(parsedDate.getDate()).padStart(2, '0');
+                            dateStr = `${y}-${m}-${d}`;
+                        } else {
+                            // Coba format YYYY-MM-DD langsung jika sudah terekspor begitu
+                            if (postTimeRaw.match(/^\d{4}-\d{2}-\d{2}/)) {
+                                dateStr = postTimeRaw.substring(0, 10);
+                            }
+                        }
+                    } catch (err) { }
+
+                    if (!dateStr) return; // Lewati jika format gagal di-parsing
+
+                    // Inisialisasi DB path
+                    if (!window.dataStore.posts[dateStr]) window.dataStore.posts[dateStr] = { _items: [] };
+                    if (!Array.isArray(window.dataStore.posts[dateStr]._items)) window.dataStore.posts[dateStr]._items = [];
+
+                    // Normalisasikan ke item
+                    const newItem = normalizeItem({
+                        title: title || 'TikTok Video',
+                        link: link,
+                        reach: views,
+                        impressions: views,
+                        likes: likes,
+                        comments: comments,
+                        shares: shares,
+                        saves: 0, // TikTok default export list doesn't explicitly guarantee "Total favorites" early in standard column list unless custom exported. Default 0.
+                        lastEdited: new Date().toISOString()
+                    });
+
+                    window.dataStore.posts[dateStr]._items.push(newItem);
+                    importedCount++;
+                });
+
+                if (importedCount > 0) {
+                    normalizePostsStructure();
+                    if (typeof generateMonthOptions === 'function') generateMonthOptions();
+                    if (typeof window.persistData === 'function') window.persistData();
+
+                    if (typeof renderTableFilteredSorted === 'function') renderTableFilteredSorted();
+                    else if (typeof renderTableFiltered === 'function') renderTableFiltered();
+
+                    if (typeof updateEngagement === 'function') updateEngagement();
+                    if (typeof updateStatsUI === 'function') updateStatsUI();
+
+                    try { window.pushHistory(`Bulk Auto-Imported ${importedCount} TikTok posts via CSV`); } catch (e) { }
+
+                    alert(`✅ Berhasil import ${importedCount} postingan dari TikTok Studio!`);
+                    fileInput.value = ""; // Reset input
+                } else {
+                    alert('Tidak ditemukan baris yang valid untuk diproses. Periksa nama kolom CSV/Excel Anda.');
+                }
+
+            } catch (err) {
+                console.error("Kesalahan membaca file:", err);
+                alert('Gagal membaca file CSV/Excel. Terjadi kesalahan pada saat parsing data.');
+            }
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+    window.importTiktokCsv = importTiktokCsv;
+
     // save data (now saves into selected item on selected date)
     function saveData() {
         const date = document.getElementById("dateInput")?.value;
@@ -1112,7 +1374,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             'postInteractions', 'reelsInteractions', 'profileActivity', 'messagingConversationsStarted',
             'profileVisits', 'follows', 'externalLinkTaps', 'businessAddressTaps',
             'viewFollowersPercentage', 'viewNonFollowersPercentage',
-            'intFollowersPercentage', 'intNonFollowersPercentage'
+            'intFollowersPercentage', 'intNonFollowersPercentage', 'views'
         ];
         fieldsToSave.forEach(field => {
             const element = document.getElementById(field);
@@ -1125,8 +1387,12 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const notesVal = document.getElementById("contentNotes")?.value || "";
         item.notes = notesVal;
 
-        // Auto-extract hashtags from notes and merge with existing tags
-        const extracted = extractHashtags(notesVal);
+        const titleVal = (document.getElementById("newPostTitle")?.value || "").trim();
+        if (titleVal) item.title = titleVal;
+
+        // Auto-extract hashtags from both notes and title, and merge with existing tags
+        const textToExtractFrom = notesVal + " " + titleVal;
+        const extracted = extractHashtags(textToExtractFrom);
         const currentTagInput = document.getElementById("contentTag")?.value || "";
         let currentTags = parseTagsFromString(currentTagInput);
 
@@ -1140,10 +1406,10 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         item.tag = rawTag;
         item.tags = parseTagsFromString(rawTag);
         item.lastEdited = new Date().toISOString();
-        const titleVal = (document.getElementById("newPostTitle")?.value || "").trim();
-        if (titleVal) item.title = titleVal;
 
         window.dataStore.posts[date]._items[idx] = normalizeItem(item);
+
+        if (window.persistData) window.persistData();
 
         // update profile basic snapshot fields
         dataStore.profile = {
@@ -1302,12 +1568,19 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         } else {
             filtered.sort((a, b) => b.date.localeCompare(a.date));
         }
-        
 
-        // Build sort badge labels map
+
+        // Build sort badge labels map dynamically
+        let pReach = 'Reach', pLikes = 'Likes', pShares = 'Shares', pSaves = 'Saves';
+        if (window.CURRENT_PLATFORM === 'tiktok') {
+            pReach = 'Views'; pSaves = 'Saves';
+        } else if (window.CURRENT_PLATFORM === 'linkedin') {
+            pReach = 'Impr'; pLikes = 'Reactions'; pShares = 'Reposts'; pSaves = 'Clicks';
+        }
+
         const sortLabelMap = {
-            reach: 'Reach', impressions: 'Impr', likes: 'Likes', comments: 'Comments',
-            shares: 'Shares', saves: 'Saves', follows: 'Follows',
+            reach: pReach, impressions: 'Impr', likes: pLikes, comments: 'Comments',
+            shares: pShares, saves: pSaves, follows: 'Follows',
             profileVisits: 'Profile Visits', externalLinkTaps: 'Link Taps', views: 'Views',
             engagement: 'Eng. Rate'
         };
@@ -1319,9 +1592,9 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             const rate = (d && d.engagement !== undefined) ? d.engagement : (d.reach > 0 ? (((d.likes || 0) + (d.comments || 0) + (d.shares || 0) + (d.saves || 0)) / (d.reach || 1) * 100) : 0);
             const tags = Array.isArray(d.tags) ? d.tags : (d.tag ? parseTagsFromString(d.tag) : []);
             const tagHtml = tags.map(t => `<span class="badge" onclick="selectTagFromTable('${escapeHtml(t)}')">#${escapeHtml(t)}</span>`).join(' ');
-            const linkHtml = d.link ? `<a href="${escapeHtml(d.link)}" target="_blank">${escapeHtml(d.link)}</a>` : "";
-            const titleHtml = d.title ? `<div class="metaSmall">(${escapeHtml(d.title)})</div>` : "";
-            const notesHtml = d.notes ? `<div class="metaSmall">Notes: ${escapeHtml(d.notes)}</div>` : "";
+            const linkHtml = d.link ? `<br><a href="${escapeHtml(d.link)}" target="_blank" style="display:inline-block; max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom;" title="${escapeHtml(d.link)}">${escapeHtml(d.link)}</a>` : "";
+            const titleHtml = d.title ? `<div class="metaSmall" style="display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; max-width:450px; margin-top:4px;" title="${escapeHtml(d.title)}">${escapeHtml(d.title)}</div>` : "";
+            const notesHtml = d.notes ? `<div class="metaSmall" style="display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; max-width:450px; margin-top:4px;" title="${escapeHtml(d.notes)}">Notes: ${escapeHtml(d.notes)}</div>` : "";
 
             // Badge for sorted metric (only when sorting by a non-date metric)
             let sortBadgeHtml = '';
@@ -1350,16 +1623,29 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             }
 
             const meta = (tagHtml || titleHtml || notesHtml) ? `<div style="margin-top:6px; text-align:left;">${tagHtml}${titleHtml}${notesHtml}</div>` : "";
-            const row = `<tr>
-        <td>${escapeHtml(date)}</td>
-        <td style="text-align:left;">${rankStarHtml}${rankBadgeHtml}${sortBadgeHtml}${linkHtml}${meta}</td>
-        <td>${d.reach || 0}</td>
+            let metricsCols = '';
+            // For tiktok/linkedin, the HTML headers are: Tanggal, Detail Post, Views (Impr), Likes, Comm, Shares, Saves, Eng%, Aksi
+            if (window.CURRENT_PLATFORM === 'tiktok' || window.CURRENT_PLATFORM === 'linkedin') {
+                metricsCols = `        <td>${d.reach || 0}</td>
+        <td>${d.likes || 0}</td>
+        <td>${d.comments || 0}</td>
+        <td>${d.shares || 0}</td>
+        <td>${d.saves || 0}</td>
+        <td>${Number(rate).toFixed(1)}%</td>
+        <td><button class="btn-secondary" onclick="editData('${entry.token}')">Ubah</button> <button class="btn-danger" style="margin-top:5px;" onclick="deleteData('${entry.token}')">Hapus</button></td>`;
+            } else {
+                metricsCols = `        <td>${d.reach || 0}</td>
         <td>${d.impressions || 0}</td>
         <td>${d.likes || 0}</td>
         <td>${d.comments || 0}</td>
-        <!-- Saves and visits removed -->
         <td>${Number(rate).toFixed(1)}%</td>
-        <td><button class="btn-secondary" onclick="editData('${entry.token}')">Ubah</button> <button class="btn-danger" onclick="deleteData('${entry.token}')">Hapus</button></td>
+        <td><button class="btn-secondary" onclick="editData('${entry.token}')">Ubah</button> <button class="btn-danger" style="margin-top:5px;" onclick="deleteData('${entry.token}')">Hapus</button></td>`;
+            }
+
+            const row = `<tr>
+        <td>${escapeHtml(date)}</td>
+        <td style="text-align:left; max-width:450px;">${rankStarHtml}${rankBadgeHtml}${sortBadgeHtml}${linkHtml}${meta}</td>
+${metricsCols}
       </tr>`;
             tbody.insertAdjacentHTML("beforeend", row);
         });
@@ -1493,6 +1779,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             dataStore.posts[date]._items.splice(idx, 1);
             if (!dataStore.posts[date]._items.length) delete dataStore.posts[date];
         }
+        if (window.persistData) window.persistData();
         updateGlobalLastEdited(); // Update timestamp on delete
         generateMonthOptions();
         renderTableFiltered();
@@ -1604,7 +1891,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         addPostItemWithData(newDate, editedData);
 
         // Simpan ke localStorage dan perbarui UI
-        localStorage.setItem('instagram_insight_data', JSON.stringify(window.dataStore));
+        if (window.persistData) window.persistData();
         renderTableFiltered();
         renderTagCloud();
         generateMonthOptions();
@@ -1622,9 +1909,13 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
     // export/import
     function exportJson() {
-        // export current dataStore as-is (uses _items structure)
-        const blob = new Blob([JSON.stringify(dataStore, null, 2)], { type: "application/json" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "insight_data.json"; a.click();
+        // export combined allData 
+        const plat = window.CURRENT_PLATFORM || 'instagram';
+        if (window.allData) window.allData[plat] = window.dataStore; // ensure sync before export
+        const blob = new Blob([JSON.stringify(window.allData, null, 2)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        const filename = "insight_data_all_platforms.json";
+        a.download = filename; a.click();
     }
     window.exportJson = exportJson;
 
@@ -1635,28 +1926,50 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         reader.onload = function (e) {
             try {
                 const parsed = JSON.parse(e.target.result);
-                if (parsed.profile) dataStore.profile = Object.assign({}, dataStore.profile || {}, parsed.profile);
-                if (parsed.profileSnapshots) dataStore.profileSnapshots = Object.assign({}, dataStore.profileSnapshots || {}, parsed.profileSnapshots);
-                if (parsed.posts) {
-                    // merge posts, normalize numbers, accept both legacy and new formats
-                    Object.keys(parsed.posts).forEach(d => {
-                        const p = parsed.posts[d] || {};
-                        // If parsed has _items already use them
-                        if (Array.isArray(p._items)) {
-                            p._items = p._items.map(v => normalizeItem(v));
-                            dataStore.posts[d] = { _items: p._items };
-                        } else {
-                            // legacy: main object + optional _variants
-                            const items = [];
-                            const main = Object.assign({}, p);
-                            const variants = Array.isArray(main._variants) ? main._variants : [];
-                            if (main._variants) delete main._variants;
-                            items.push(normalizeItem(main));
-                            (variants || []).forEach(v => items.push(normalizeItem(v)));
-                            dataStore.posts[d] = { _items: items };
-                        }
-                    });
+
+                // Determine if it's a combined platform JSON or legacy/single platform
+                const plat = window.CURRENT_PLATFORM || 'instagram';
+
+                if (parsed.instagram || parsed.tiktok || parsed.linkedin) {
+                    // It's a combined JSON, merge new data into allData
+                    Object.assign(window.allData, parsed);
+
+                    // Reassign dataStore to active platform
+                    if (!window.allData[plat]) {
+                        window.allData[plat] = { profile: {}, posts: {} };
+                    }
+                    window.dataStore = window.allData[plat];
+                } else {
+                    // It's Legacy JSON. Merge it into the CURRENT platform slice only.
+                    if (parsed.profile) window.dataStore.profile = Object.assign({}, window.dataStore.profile || {}, parsed.profile);
+                    if (parsed.profileSnapshots) window.dataStore.profileSnapshots = Object.assign({}, window.dataStore.profileSnapshots || {}, parsed.profileSnapshots);
+                    if (parsed.posts) {
+                        Object.keys(parsed.posts).forEach(d => {
+                            const p = parsed.posts[d] || {};
+                            if (!window.dataStore.posts[d]) window.dataStore.posts[d] = { _items: [] };
+
+                            // If parsed has _items already use them
+                            let itemsToAdd = [];
+                            if (Array.isArray(p._items)) {
+                                itemsToAdd = p._items.map(v => normalizeItem(v));
+                            } else {
+                                // legacy: main object + optional _variants
+                                const main = Object.assign({}, p);
+                                const variants = Array.isArray(main._variants) ? main._variants : [];
+                                if (main._variants) delete main._variants;
+                                itemsToAdd.push(normalizeItem(main));
+                                (variants || []).forEach(v => itemsToAdd.push(normalizeItem(v)));
+                            }
+
+                            const exist = Array.isArray(window.dataStore.posts[d]._items) ? window.dataStore.posts[d]._items : [];
+                            window.dataStore.posts[d]._items = [...exist, ...itemsToAdd];
+                        });
+                    }
+                    // Sync back to master object
+                    window.allData[plat] = window.dataStore;
                 }
+
+                if (window.persistData) window.persistData();
                 // normalize fully to ensure new structure
                 normalizePostsStructure();
                 generateMonthOptions();
@@ -1718,7 +2031,11 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
     // CSV exports
     function exportCsvPostsMode(mode) {
         const selectedMonth = document.getElementById("monthFilter")?.value || "all";
-        const rows = [["Date", "Link", "Reach", "Impressions", "Likes", "Comments", "Shares", "Saves", "Post Interactions", "Profile Visits", "Engagement Rate", "Tags"]];
+        let headerRow = ["Date", "Link", "Reach", "Impressions", "Likes", "Comments", "Shares", "Saves", "Post Interactions", "Profile Visits", "Engagement Rate", "Tags"];
+        if (window.CURRENT_PLATFORM === 'tiktok') headerRow = ["Date", "Link", "Views", "Likes", "Comments", "Shares", "Saves", "Profile Views", "Engagement Rate", "Tags"];
+        else if (window.CURRENT_PLATFORM === 'linkedin') headerRow = ["Date", "Link", "Impressions", "Reactions", "Comments", "Reposts", "Clicks", "Profile Views", "Engagement Rate", "Tags"];
+
+        const rows = [headerRow];
         Object.keys(dataStore.posts || {}).sort().forEach(date => {
             if (mode === "filter" && selectedMonth !== "all" && !date.startsWith(selectedMonth)) return;
             const p = dataStore.posts[date] || {};
@@ -1726,7 +2043,12 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             items.forEach(it => {
                 const d = it || {};
                 const rate = d.engagement !== undefined ? d.engagement : (d.reach > 0 ? (((d.likes || 0) + (d.comments || 0) + (d.shares || 0) + (d.saves || 0)) / (d.reach || 1) * 100) : 0);
-                rows.push([date, d.link || "", d.reach || 0, d.impressions || 0, d.likes || 0, d.comments || 0, d.shares || 0, d.saves || 0, d.postInteractions || 0, d.profileVisits || 0, Number(rate).toFixed(1) + "%", (d.tags || []).join(' ')]);
+                let rowCols = [date, d.link || "", d.reach || 0, d.impressions || 0, d.likes || 0, d.comments || 0, d.shares || 0, d.saves || 0, d.postInteractions || 0, d.profileVisits || 0, Number(rate).toFixed(1) + "%", (d.tags || []).join(' ')];
+
+                if (window.CURRENT_PLATFORM === 'tiktok') rowCols = [date, d.link || "", d.reach || 0, d.likes || 0, d.comments || 0, d.shares || 0, d.saves || 0, d.profileVisits || 0, Number(rate).toFixed(1) + "%", (d.tags || []).join(' ')];
+                else if (window.CURRENT_PLATFORM === 'linkedin') rowCols = [date, d.link || "", d.reach || 0, d.likes || 0, d.comments || 0, d.shares || 0, d.saves || 0, d.profileVisits || 0, Number(rate).toFixed(1) + "%", (d.tags || []).join(' ')];
+
+                rows.push(rowCols);
             });
         });
         const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -1763,28 +2085,51 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             const items = Array.isArray(p._items) ? p._items : [];
             items.forEach(d => {
                 const rate = d.engagement !== undefined ? d.engagement : (d.reach > 0 ? (((d.likes || 0) + (d.comments || 0) + (d.shares || 0) + (d.saves || 0)) / (d.reach || 1) * 100) : 0);
-                postsData.push({
+                let rowData = {
                     "Date": date,
                     "Title": d.title || "",
                     "Link": d.link || "",
                     "Caption/Notes": d.notes || "",
-                    "Tags": (d.tags || []).join(', '),
-                    "Reach": d.reach || 0,
-                    "Impressions": d.impressions || 0,
-                    "Likes": d.likes || 0,
-                    "Comments": d.comments || 0,
-                    "Shares": d.shares || 0,
-                    "Saves": d.saves || 0,
-                    "Engagement Rate %": Number(Number(rate).toFixed(2)),
-                    "Post Interactions": d.postInteractions || 0,
-                    "Profile Visits": d.profileVisits || 0,
-                    "Profile Activity": d.profileActivity || 0,
-                    "Follows": d.follows || 0,
-                    "Link Taps": d.externalLinkTaps || 0,
-                    "Addr Taps": d.businessAddressTaps || 0,
-                    "Msgs Started": d.messagingConversationsStarted || 0,
-                    "Views": d.views || 0
-                });
+                    "Tags": (d.tags || []).join(', ')
+                };
+
+                if (window.CURRENT_PLATFORM === 'tiktok') {
+                    rowData["Views"] = d.reach || 0;
+                    rowData["Likes"] = d.likes || 0;
+                    rowData["Comments"] = d.comments || 0;
+                    rowData["Shares"] = d.shares || 0;
+                    rowData["Saves"] = d.saves || 0;
+                    rowData["Profile Views"] = d.profileVisits || 0;
+                } else if (window.CURRENT_PLATFORM === 'linkedin') {
+                    rowData["Impressions"] = d.reach || 0;
+                    rowData["Reactions"] = d.likes || 0;
+                    rowData["Comments"] = d.comments || 0;
+                    rowData["Reposts"] = d.shares || 0;
+                    rowData["Clicks"] = d.saves || 0;
+                    rowData["Profile Views"] = d.profileVisits || 0;
+                } else {
+                    rowData["Reach"] = d.reach || 0;
+                    rowData["Impressions"] = d.impressions || 0;
+                    rowData["Likes"] = d.likes || 0;
+                    rowData["Comments"] = d.comments || 0;
+                    rowData["Shares"] = d.shares || 0;
+                    rowData["Saves"] = d.saves || 0;
+                }
+
+                rowData["Engagement Rate %"] = Number(Number(rate).toFixed(2));
+
+                if (window.CURRENT_PLATFORM !== 'tiktok' && window.CURRENT_PLATFORM !== 'linkedin') {
+                    rowData["Post Interactions"] = d.postInteractions || 0;
+                    rowData["Profile Visits"] = d.profileVisits || 0;
+                    rowData["Profile Activity"] = d.profileActivity || 0;
+                    rowData["Follows"] = d.follows || 0;
+                    rowData["Link Taps"] = d.externalLinkTaps || 0;
+                    rowData["Addr Taps"] = d.businessAddressTaps || 0;
+                    rowData["Msgs Started"] = d.messagingConversationsStarted || 0;
+                    rowData["Views"] = d.views || 0;
+                }
+
+                postsData.push(rowData);
             });
         });
 
@@ -1823,7 +2168,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         XLSX.utils.book_append_sheet(wb, wsProfile, "Profile Stats");
 
         // 4. Download
-        XLSX.writeFile(wb, "Instagram_Insight_Report.xlsx");
+        const platformNameStr = window.PLATFORM_NAME || 'Instagram';
+        XLSX.writeFile(wb, platformNameStr + "_Insight_Report.xlsx");
     }
     window.exportToExcel = exportToExcel;
 
@@ -1909,7 +2255,8 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             'postInteractions', 'reelsInteractions', 'views', 'profileActivity',
             'profileVisits', 'follows', 'externalLinkTaps', 'businessAddressTaps',
             'viewFollowersPercentage', 'viewNonFollowersPercentage',
-            'intFollowersPercentage', 'intNonFollowersPercentage', 'contentNotes', 'contentTag', 'newPostTitle'
+            'intFollowersPercentage', 'intNonFollowersPercentage', 'contentNotes', 'contentTag', 'newPostTitle',
+            'messagingConversationsStarted'
         ];
         fieldsToWatch.forEach(id => {
             const el = document.getElementById(id);
@@ -2521,6 +2868,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                     window[n] = function (...args) {
                         // call original
                         const res = orig.apply(this, args);
+                        if (window.persistData) window.persistData();
                         try {
                             // push history snapshot after mutation; use a short timeout to ensure any DOM reads are settled
                             setTimeout(function () { try { window.pushHistory(n); } catch (e) { console.error('pushHistory after ' + n, e); } }, 10);

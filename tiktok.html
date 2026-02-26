@@ -1,1726 +1,531 @@
-<!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
-  <title>TikTok Insight Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tiktok Insight Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #fff; color: #111; }
-    h3 { margin-bottom: 10px; }
-    .content { border: 1px solid #000; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fafafa; }
-    .form-row { display: flex; align-items: center; margin: 8px 0; }
-    .form-row label { flex: 1; }
-    .form-row input, .form-row select, .form-row textarea { flex: 2; padding: 6px; border: 1px solid #000; border-radius: 4px; }
-    button { margin: 6px; padding: 6px 12px; background: #000; color: #fff; border: none; cursor: pointer; border-radius: 6px; font-size: 14px; }
-    button.primary { background: #25f4ee; color: #000; }
-    button:hover { background: #949494; opacity: 0.8; }
-    canvas { max-width: 700px; margin-top: 20px; }
-    table { border-collapse: collapse; margin-top: 10px; width: 100%; font-size: 14px; }
-    table, th, td { border: 1px solid #000; }
-    th, td { padding: 6px; text-align: center; }
-    .collapsible { cursor: pointer; background: #000; color: #fff; padding: 10px; border-radius: 6px; }
-    .hidden { display: none; }
-    .muted { color: #555; font-size: 13px; }
-    .badge { display:inline-block; padding:4px 8px; margin:3px; background:#eee; border-radius:12px; font-size:12px; cursor:pointer; border:1px solid #ccc; color:#111; user-select:none; }
-    .badge:hover { background:#ddd; }
-    .badge.active { background:#e300f8; color:#fff; border-color:#000; }
-    .tag-count { font-size:11px; color:#666; margin-left:6px; }
-    .tagCloudWrap { margin:8px 0; }
-    .metaSmall { font-size:12px;color:#444;margin-top:4px; text-align:left; }
-    /* New styles for post items list */
-    #postItemsList { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .post-item { padding:6px 10px; border:1px solid #ccc; border-radius:12px; background:#f3f3f3; cursor:pointer; display:inline-flex; gap:8px; align-items:center; }
-    .post-item:hover { background:#e9e9e9; }
-    .post-item.active { background:#000; color:#fff; border-color:#000; }
-    .post-item .title { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .post-item .btn-small { background:transparent; color:inherit; border:none; cursor:pointer; padding:2px 6px; font-size:12px; }
-    .post-add { display:inline-flex; gap:8px; align-items:center; }
-    .inline-input { padding:6px; border:1px solid #000; border-radius:4px; }
-  </style>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script>
+    window.CURRENT_PLATFORM = 'tiktok';
+    window.PLATFORM_NAME = 'Tiktok';
+  </script>
 </head>
+
 <body>
-  <script>
-    // Bootstrap: prevent early ReferenceError by providing minimal dataStore and placeholders.
-    window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, posts: {} };
-    (function(){
-      const placeholderNames = [
-        'renderPostVariantsForDate','getVariantsForDate','parseTagsFromString','buildProfileURL','buildProfileText',
-        'renderProfileInputs','renderUsernameAreas','renderTagCloud','renderTableFiltered','renderTableFilteredSorted',
-        'generateMonthOptions','generateProfileMonthOptions','loadJson','saveData','deleteData','saveProfileSnapshot',
-        'updateMonthlyReachDisplay','updateMonthlyImpressionsDisplay','editData','deleteProfileSnapshot'
-      ];
-      placeholderNames.forEach(n=>{
-        if (typeof window[n] !== 'function') window[n] = function(){ /* placeholder */ };
-      });
-    })();
-  </script>
 
-  <div class="content">
-    <h3>Insight Konten TikTok</h3>
-    <div class="form-row">
-      <label>Tanggal:</label> <input type="date" id="dateInput" onchange="handleDateChange()">
+  <div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h2>Tiktok Insight Dashboard</h2>
+      <div>
+        <button onclick="exportdc()" class="btn-secondary hidden">Export HTML (Legacy)</button>
+      </div>
     </div>
-    <div class="form-row" style="align-items:flex-start;">
-      <label>Post (hari ini):</label>
-      <div style="flex:2;">
-        <div id="postItemsList" aria-live="polite"></div>
-        <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-          <button type="button" onclick="addPostItem()">(+) Tambah Post Baru</button> 
-          <input id="newPostTitle" class="inline-input" placeholder="Judul post baru (opsional)"></input>
+
+    <!-- Profile Section -->
+    <div class="content">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Profile & Demographics</h3>
+        <div class="platform-tabs">
+          <a href="instagram.html" class="tab"><i class="fa-brands fa-instagram"></i> Instagram</a>
+          <a href="tiktok.html" class="tab active"><i class="fa-brands fa-tiktok"></i> Tiktok</a>
+          <a href="linkedin.html" class="tab"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
         </div>
-        <small class="muted">Buat banyak post pada tanggal yang sama — klik judul untuk memilih, edit di form lalu Simpan Data.</small>
+      </div>
+
+      <!-- Snapshot Management (moved to directly under header) -->
+      <div style="margin-top:20px; border-top:1px dashed #ccc; padding-top:15px;">
+        <h4>Profile Snapshots</h4>
+        <div class="form-row" style="background:#fafafa; padding:10px; border-radius:6px;">
+          <label>Pilih Bulan:</label>
+          <select id="profileMonthFilter">
+            <option value="all">Semua / Current</option>
+          </select>
+          <button class="btn-danger" onclick="deleteProfileSnapshot()">Hapus Snapshot</button>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:20px;">
+        <div style="flex:1; min-width:300px;">
+          <div class="form-row">
+            <label for="username">Username:</label>
+            <input type="text" id="username" placeholder="username_tanpa_at">
+          </div>
+          <div style="margin-bottom:10px; font-weight:500;">
+            Profile Link: <span id="igProfileLink"><a href="#" target="_blank">-</a></span>
+          </div>
+
+          <h4>Follower Growth</h4>
+          <div class="form-row">
+            <label>Followers (Sebelumnya):</label>
+            <input type="number" id="followersStart" value="0">
+          </div>
+          <div class="form-row">
+            <label>Followers (Bulan Ini):</label>
+            <input type="number" id="followersEnd" value="0">
+          </div>
+          <div style="background:#e3f2fd; padding:10px; border-radius:6px; margin-top:10px;">
+            <div>Growth: <strong id="followerGrowth">0</strong></div>
+            <div>Growth Rate: <strong id="growthRate">0.0%</strong></div>
+          </div>
+          <div id="initialFollowersBadgeWrap" style="margin-top:10px;"></div>
+        </div>
+
+        <div style="flex:1; min-width:300px;">
+          <h4>Demographics (% Usia) </h4>
+          <div class="form-row"><label>18-24:</label><input type="number" id="age18_24" placeholder="%"></div>
+          <div class="form-row"><label>25-34:</label><input type="number" id="age25_34" placeholder="%"></div>
+          <div class="form-row"><label>35-44:</label><input type="number" id="age35_44" placeholder="%"></div>
+          <div class="form-row"><label>45-54:</label><input type="number" id="age45_54" placeholder="%"></div>
+          <div class="form-row"><label>55-64:</label><input type="number" id="age55_64" placeholder="%"></div>
+
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <div style="flex:1;">
+              <label>Male (%):</label>
+              <input type="number" id="male" class="inline-input" style="width:100%">
+            </div>
+            <div style="flex:1;">
+              <label>Female (%):</label>
+              <input type="number" id="female" class="inline-input" style="width:100%">
+            </div>
+          </div>
+
+          <div style="margin-top:15px; text-align:right;">
+            <button class="btn-primary" onclick="updateProfile()">Update Profile Metrics</button>
+          </div>
+        </div>
+      </div>
+
+
+
+      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
+        <div style="margin-bottom:15px; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #eee;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="margin:0;">Custom Performance Chart</h4>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-primary btn-small" onclick="updateProfile()">🔄 Update Chart</button>
+              <span id="chartSelectionBadge" class="insight-badge"
+                style="margin-left:6px; font-size:12px; padding:6px 8px;">0 posts</span>
+              <label class="switch-label"
+                style="font-size:12px; margin-left:8px; display:inline-flex; align-items:center; gap:8px; color:#555;">
+                <span>Glow</span>
+                <span class="switch">
+                  <input type="checkbox" id="chartAnimateToggle" checked>
+                  <span class="switch-slider"></span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start;">
+            <!-- Date Range -->
+            <div style="flex:0 0 auto;">
+              <div style="font-size:12px; font-weight:600; margin-bottom:6px; color:#555;">Date Range</div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="date" id="chartStartDate" class="input-small">
+                <span style="color:#999;">to</span>
+                <input type="date" id="chartEndDate" class="input-small">
+              </div>
+              <div style="margin-top:6px; font-size:11px; color:#666; cursor:pointer; text-decoration:underline;"
+                onclick="setChartRange('30')">Last 30 Days</div>
+              <div style="font-size:11px; color:#666; cursor:pointer; text-decoration:underline;"
+                onclick="setChartRange('all')">All Time</div>
+            </div>
+
+            <!-- Metrics Selector -->
+            <div style="flex:1;">
+              <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:#555;">Select Metrics</div>
+              <div id="chartMetricsSelector"
+                style="display:flex; flex-wrap:wrap; gap:8px; max-height:120px; overflow-y:auto; padding:4px 0;">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <canvas id="profileChart" height="90"></canvas>
       </div>
     </div>
 
-    <div class="form-row">
-      <label>Tautan:</label><input type="text" id="link">
-    </div>
-    <div class="form-row">
-      <label>Reach / Akun yang Dijangkau:</label><input type="number" id="reach" value="0">
-    </div>
-    <div class="form-row">
-      <label>Tayangan (Video Views):</label><input type="number" id="impressions" value="0">
-    </div>
-    <div class="form-row">
-      <label>Suka:</label><input type="number" id="likes" value="0">
-    </div>
-    <div class="form-row">
-      <label>Komentar:</label><input type="number" id="comments" value="0">
-    </div>
-    <div class="form-row">
-      <label>Bagikan:</label><input type="number" id="shares" value="0">
-    </div>
-    <div class="form-row">
-      <label>Tersimpan (Bookmarks):</label><input type="number" id="saves" value="0">
-    </div>
-    <div class="form-row">
-      <label>Kunjungan Profil:</label><input type="number" id="visit" value="0" min="0">
-    </div>
-    <div class="form-row">
-      <label>Tag / Jenis Konten:</label><input type="text" id="contentTag" placeholder="mis. Video, #promo, stitch, duet">
-    </div>
-    <div class="form-row">
-      <label>Klik Tautan Bio:</label><input type="number" id="websiteClicks" value="0" min="0">
-    </div>
-    <div class="form-row" style="align-items:flex-start;">
-      <label>Notes/captions:</label>
-      <textarea id="contentNotes" rows="3" style="flex:2; padding:6px; border:1px solid #000; border-radius:4px;"></textarea>
-    </div>
-    <p id="engagementRate"><strong>Engagement Rate:</strong> 0.0%</p>
-    <div style="display:flex; align-items:center; gap:12px;">
-      <label style="display:inline-flex; align-items:center; gap:8px;"><input type="checkbox" id="exportOnSave"> Export JSON on save</label>
-      <label style="display:inline-flex; align-items:center; gap:8px;"><input type="checkbox" id="enableAutoSave" checked> Enable autosave</label>
-      <div style="font-size:12px;color:#444;margin-left:8px;">
-        Last edit: <span id="lastEdited" style="font-weight:normal;">-</span>
+    <!-- Input & Data Entry Section -->
+    <div class="content">
+      <h3>Input Insight Postingan</h3>
+
+      <div style="margin-bottom:20px; padding:15px; background:#f0f7ff; border-radius:8px; border:1px solid #bbdefb;">
+        <h4 style="margin-top:0;">1. Import Otomatis (Paste Text)</h4>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <textarea id="extensionDataPaste" rows="3"
+            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;"
+            placeholder="Paste data dari ekstensi di sini..."></textarea>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="btn-primary" onclick="importFromExtension()">Isi Formulir Otomatis</button>
+          <span class="muted" style="margin-left:10px;">Data akan dimasukkan ke form di bawah</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px; padding:15px; background:#e8f5e9; border-radius:8px; border:1px solid #c8e6c9;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0;">1b. Import dari File TikTok Studio (CSV/Excel)</h4>
+          <span class="insight-badge"
+            title="Cara export: Buka TikTok Studio -> Analytics -> Content -> Pilih 'Last 7 Days' atau custom -> Klik 'Download data' -> Export dalam format CSV/Excel."
+            style="cursor:help; background:#fff; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:12px;">ℹ️
+            Cara Penggunaan</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="file" id="tiktokCsvUpload" accept=".csv, .xlsx"
+            style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:6px; flex:1;">
+          <button class="btn-primary" onclick="importTiktokCsv()">Upload & Masukkan Database</button>
+        </div>
+        <div class="muted" style="margin-top:5px; font-size:12px;">Data akan langsung tersimpan ke dalam database
+          berdasarkan kolom 'Post time'.</div>
+      </div>
+
+      <h4 style="margin-top:0;">2. Edit / Input Manual</h4>
+
+      <div class="form-row" style="background:#fff3e0; padding:10px; border-radius:6px; border:1px solid #ffe0b2;">
+        <label for="dateInput">Tanggal Post:</label>
+        <input type="date" id="dateInput">
+      </div>
+
+      <!-- Post Items Manager -->
+      <div id="postItemsContainer" style="margin-bottom:15px; padding:10px; border:1px solid #eee; border-radius:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label>Daftar Post pada tanggal ini:</label>
+          <button class="btn-secondary btn-small" onclick="addPostItem()">+ Tambah Post Baru</button>
+        </div>
+        <div id="postItemsList">
+          <span class="muted">(Pilih tanggal untuk melihat post)</span>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:20px;">
+        <!-- Content Details -->
+        <div style="flex:1; min-width:300px;">
+          <h5>Content Info</h5>
+          <div class="form-row"><label>Judul / Caption Awal:</label><input type="text" id="newPostTitle"
+              placeholder="Judul singkat untuk identifikasi"></div>
+          <div class="form-row"><label>Link Post:</label><input type="text" id="link"
+              placeholder="https://instagram.com/p/..."></div>
+          <div class="form-row"><label>Notes (Full Caption):</label><textarea id="contentNotes" rows="3"></textarea>
+          </div>
+          <div class="form-row"><label>Tags (koma/spasi):</label><input type="text" id="contentTag"
+              placeholder="#design #tips"></div>
+        </div>
+
+        <!-- Metrics -->
+        <div style="flex:1; min-width:300px;">
+          <h5>Metrics Utama (Tiktok)</h5>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div><label style="display:block;font-size:12px;"
+                title="Views = Total tayangan video (digunakan sbg Reach untuk hitung ER).">Video Views
+                ℹ️</label><input type="number" id="reach" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;" title="Likes = Jumlah Suka.">Likes
+                ℹ️</label><input type="number" id="likes" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Comments = Jumlah komentar di post Tiktok.">Comments
+                ℹ️</label><input type="number" id="comments" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;" title="Shares = Jumlah post dibagikan.">Shares
+                ℹ️</label><input type="number" id="shares" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;" title="Saves = Jumlah video difavoritkan/disimpan.">Saves
+                (Favorites)
+                ℹ️</label><input type="number" id="saves" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Profile Views = Kunjungan profil dari video ini.">Profile Views
+                ℹ️</label><input type="number" id="profileVisits" style="width:100%"></div>
+            <div><label style="display:block;font-size:12px;"
+                title="Follows = Pertumbuhan follower baru dari video ini.">Follows
+                ℹ️</label><input type="number" id="follows" style="width:100%"></div>
+          </div>
+          <div id="engagementRate"
+            title="Engagement Rate = (Likes + Comments + Shares + Saves) ÷ Reach × 100%. Dihitung otomatis dari data di atas."
+            style="margin:10px 0; padding:8px; background:#e8f5e9; color:#2e7d32; border-radius:4px; text-align:center; cursor:help;">
+            <strong>Engagement Rate:</strong> 0.0%
+          </div>
+        </div>
+      </div>
+
+
+
+      <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+        <button class="btn-primary" style="font-size:16px; padding:12px 25px;" onclick="saveData()">💾 SIMPAN POST
+          DATA</button>
       </div>
     </div>
-    <button onclick="saveData()" class="primary">Simpan Data</button> <button onclick="document.getElementById('jsonFile').click()">Load JSON</button>
-  </div>
 
-  <div class="content">
-    <div class="collapsible" onclick="toggleTable()">▼ Daftar Postingan</div>
-    <div id="postSection" style="margin:10px 0;">
-      <label style="margin-right:8px;"><input type="checkbox" id="compactToggle"> Compact view (sembunyikan baris setelah batas)</label>
-      <label style="margin-right:8px;">Tampilkan baris: <input type="number" id="compactLimit" value="10" min="1" style="width:60px;"></label>
-      <button type="button" onclick="applyCompactSetting()">Terapkan</button>
-      <small class="muted" style="margin-left:10px;">Gunakan untuk menyembunyikan data saat banyak postingan.</small>
-    </div>
+    <!-- Database / Table Section -->
+    <div class="content" id="postSection">
+      <h3>Database</h3>
 
-    <div style="display:flex;gap:8px;align-items:center;margin:6px 0;">
-      <button type="button" onclick="resetTagCloud()">Reset Tag Cloud</button>
-      <label style="margin:0;">Sort By:</label>
-      <select id="sortField" style="padding:6px;border:1px solid #000;border-radius:4px;margin-left:8px;">
-        <option value="date">Tanggal</option>
-        <option value="reach">Reach</option>
-        <option value="impressions">Tayangan</option>
-        <option value="likes">Suka</option>
-        <option value="comments">Komentar</option>
-        <option value="shares">Bagikan</option>
-        <option value="saves">Tersimpan</option>
-        <option value="engagement">Engagement</option>
-      </select>
-      <label style="margin-left:8px;">Urut:</label>
-      <select id="sortDir" style="padding:6px;border:1px solid #000;border-radius:4px;margin-left:4px;">
-        <option value="none">Tidak (default)</option>
-        <option value="highest">Tertinggi → Rendah</option>
-        <option value="lowest">Terendah → Tinggi</option>
-      </select>
-      <label style="margin-left:12px;">Cari Kata Kunci:</label>
-      <input type="text" id="tagFilter" placeholder="ketik kata kunci (link, notes, tag, tanggal)..." style="padding:6px;border:1px solid #000;border-radius:4px;">
-      <button type="button" id="applyTableFilterBtn">Terapkan</button>
-    </div>
-
-    <div id="postListBox"></div>
-    <label for="monthFilter"><strong>Filter Bulan:</strong></label>
-    <select id="monthFilter" onchange="renderTableFiltered()">
-      <option value="all">Semua</option>
-    </select>
-
-    <div class="tagCloudWrap">
-      <strong>Tag Cloud:</strong>
-      <div id="tagCloud" style="display:inline-block; margin-left:8px;"></div>
-    </div>
-
-    <button onclick="exportCsvPosts()">Export CSV Postingan</button>
-    <button onclick="exportCsvPostsFiltered()">Export CSV (Sesuai Filter)</button>
-
-    <table id="dataTable">
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Tautan</th>
-          <th>Reach</th>
-          <th>Tayangan</th>
-          <th>Suka</th>
-          <th>Komentar</th>
-          <th>Bagikan</th>
-          <th>Tersimpan</th>
-          <th>Tingkat Interaksi %</th>
-          <th>Aksi</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <div class="content">
-    <h3>Insight Profil TikTok</h3>
-    <div class="form-row">
-      <label>Username / Profil TikTok:</label><input type="text" id="username" placeholder="contoh: tiktokusername">
-    </div>
-    <p class="muted">Pratinjau: <span id="usernamePreview">(belum diisi)</span></p>
-    <div style="margin-top:12px; border-top:1px dashed #ccc; padding-top:10px;"></div>
-    <div class="form-row">
-      <label>Periode (Bulan):</label><input type="month" id="profileMonthInput">
-    </div>
-    <div class="form-row">
-      <label>Filter Berdasarkan Bulan:</label>
-      <select id="profileMonthFilter" onchange="loadProfileSnapshot()">
-        <option value="all">Semua</option>
-      </select>
-    </div>
-    <button onclick="saveProfileSnapshot()">Simpan Snapshot Bulanan</button>
-    <button onclick="deleteProfileSnapshot()">Hapus Snapshot Terpilih</button>
-    <button onclick="exportCsvProfile()">Export CSV Snapshot</button>
-
-    <div class="form-row">
-      <label>Followers Awal Bulan:</label><input type="number" id="followersStart" value="0">
-    </div>
-    <div class="form-row">
-      <label>Followers Hari ini:</label><input type="number" id="followersEnd" value="0">
-    </div>
-
-    <h4>Age Range (%)</h4>
-    <div class="form-row"><label>18-24:</label><input type="number" id="age18_24" value="0"></div>
-    <div class="form-row"><label>25-34:</label><input type="number" id="age25_34" value="0"></div>
-    <div class="form-row"><label>35-44:</label><input type="number" id="age35_44" value="0"></div>
-    <div class="form-row"><label>45-54:</label><input type="number" id="age45_54" value="0"></div>
-    <div class="form-row"><label>55-64:</label><input type="number" id="age55_64" value="0"></div>
-
-    <h4>Gender (%)</h4>
-    <div class="form-row"><label>Male:</label><input type="number" id="male" value="0"></div>
-    <div class="form-row"><label>Female:</label><input type="number" id="female" value="0"></div>
-
-    <p><strong>Total Reach Bulanan (Akun yang dijangkau):</strong> <span id="monthlyReachTotal">0</span></p>
-    <p><strong>Total Tayangan Bulanan (Video Views):</strong> <span id="monthlyImpressionsTotal">0</span></p>
-  </div>
-
-  <button onclick="updateProfile()">Calculate Insights</button>
-  <input type="file" id="jsonFile" accept=".json" style="display:none" onchange="loadJson(event)">
-  <button onclick="exportJson()">Ekspor JSON</button>
-  <button onclick="document.getElementById('jsonFile').click()">Load JSON</button>
-
-  <ul>
-    <li>Profil TikTok: <span id="igProfileLink">(belum diisi)</span></li>
-    <li>Follower Growth: <span id="followerGrowth">0</span></li>
-    <li>Growth Rate: <span id="growthRate">0.0%</span></li>
-    <li>Average Reach Rate: <span id="reachRate">0.0%</span></li>
-    <li>Average Engagement Rate: <span id="avgEngagement">0.0%</span></li>
-  </ul>
-
-  <canvas id="profileChart"></canvas>
-  <div style="display:flex; justify-content:center; align-items:center; margin:14px 0;"></div>
-  <span style="font-size:11px;color:rgba(0, 0, 0, 0.726);font-weight:normal;opacity:0.6;user-select:none;pointer-events:none;">Created by Arghi</span>
-
-  <script>
-    const STORAGE_KEY = 'tiktok_insight_data';
-    (function(){
-      // default store
-      window.dataStore = window.dataStore || {
-        profile: { username:"", followersStart:0, followersEnd:0, ageRange:{"18-24":0,"25-34":0,"35-44":0,"45-54":0,"55-64":0}, gender:{male:0,female:0} },
-        profileSnapshots: {},
-        posts: {}
-      };
-
-      // Load from localStorage on init
-      (function loadFromStorage() {
-        try {
-          const stored = localStorage.getItem(STORAGE_KEY);
-          if (stored) {
-            window.dataStore = JSON.parse(stored);
-          }
-        } catch (e) { console.error("Gagal memuat data dari localStorage", e); }
-      })();
-
-      // helpers
-      function normalizeUsername(raw){ return raw ? String(raw).trim().replace(/^@+/, "") : ""; }
-      function buildProfileURL(u){ return u ? "https://www.tiktok.com/@" + normalizeUsername(u) : ""; }
-      function buildProfileText(u){ return u ? "@" + normalizeUsername(u) : ""; }
-      function parseTagsFromString(s){
-        if (!s) return [];
-        return String(s).split(/[,;]+|\s+/).map(t=>t.replace(/^#+/,'').trim().toLowerCase()).filter(Boolean);
-      }
-      window.parseTagsFromString = parseTagsFromString;
-
-      // normalize posts structure to use _items []
-      function normalizePostsStructure(){
-        const out = {};
-        Object.keys(window.dataStore.posts || {}).forEach(date => {
-          const p = window.dataStore.posts[date] || {};
-          // if already normalized
-          if (Array.isArray(p._items)) {
-            // ensure numeric normalization and tags array
-            p._items = p._items.map(v => normalizeItem(v));
-            out[date] = p;
-            return;
-          }
-          // legacy: main object + optional _variants array -> convert
-          const items = [];
-          const main = Object.assign({}, p);
-          // remove _variants if present on main
-          const variants = Array.isArray(main._variants) ? main._variants : (Array.isArray(p._variants) ? p._variants : []);
-          if (main._variants) delete main._variants;
-          // main may contain title/link etc; if it has only _variants and no fields, main item may be empty -> still push
-          items.push(normalizeItem(main));
-          (variants || []).forEach(v => { items.push(normalizeItem(v)); });
-          out[date] = { _items: items };
-        });
-        window.dataStore.posts = out;
-      }
-
-      function normalizeItem(v){
-        v = Object.assign({}, v || {});
-        v.reach = +v.reach || 0;
-        v.impressions = +v.impressions || 0;
-        v.likes = +v.likes || 0;
-        v.comments = +v.comments || 0;
-        v.shares = +v.shares || 0;
-        v.saves = +v.saves || 0;
-        v.visit = +v.visit || 0;
-        v.websiteClicks = +v.websiteClicks || 0;
-        v.engagement = v.engagement !== undefined ? +v.engagement : (v.reach>0?(((v.likes||0)+(v.comments||0)+(v.shares||0)+(v.saves||0))/ (v.reach||1) *100):0);
-        if (!Array.isArray(v.tags)) v.tags = v.tag ? parseTagsFromString(v.tag) : (v.tags || []);
-        v.title = v.title || "";
-        v.notes = v.notes || "";
-        v.lastEdited = v.lastEdited || v._lastEdited || null;
-        return v;
-      }
-
-      // ensure initial normalization
-      normalizePostsStructure();
-
-      // items API (compatibility with previous getVariantsForDate)
-      function getVariantsForDate(date){
-        // returns array of { title, data, isMain } compatible with previous API
-        const base = window.dataStore.posts[date] || { _items: [] };
-        const arr = Array.isArray(base._items) ? base._items : [];
-        return arr.map((it, i) => ({ title: it.title || `Post ${i+1}`, data: it, isMain: i===0 }));
-      }
-      window.getVariantsForDate = getVariantsForDate;
-
-      // Post items list UI
-      window.currentPostIndex = 0;
-      function renderPostVariantsForDate(date){
-        // compatibility wrapper -> call new renderer
-        renderPostItemsForDate(date);
-      }
-      window.renderPostVariantsForDate = renderPostVariantsForDate;
-
-      function renderPostItemsForDate(date){
-        const container = document.getElementById('postItemsList');
-        if (!container) return;
-        container.innerHTML = '';
-        if (!date) { container.innerHTML = '<span class="muted">(Pilih tanggal untuk melihat post)</span>'; return; }
-        const obj = window.dataStore.posts[date] || { _items: [] };
-        if (!Array.isArray(obj._items)) obj._items = [];
-        // render each item
-        obj._items.forEach((item, idx) => {
-          const span = document.createElement('button');
-          span.className = 'post-item' + (idx === window.currentPostIndex ? ' active' : '');
-          span.setAttribute('data-idx', idx);
-          span.title = item.title || `Post ${idx+1}`;
-          span.innerHTML = `<span style="font-size:11px;color:rgba(0,0,0,0.6);">#${idx+1}</span><span class="title">${escapeHtml(item.title || ('Post ' + (idx+1)))}</span>`;
-          span.addEventListener('click', function(e){
-            const i = parseInt(this.getAttribute('data-idx'),10);
-            selectPostIndex(i);
-          });
-          // small delete button
-          const delBtn = document.createElement('button');
-          delBtn.className = 'btn-small';
-          delBtn.innerHTML = '✕';
-          delBtn.title = 'Hapus post ini';
-          delBtn.addEventListener('click', function(ev){
-            ev.stopPropagation();
-            if (!confirm('Hapus post #' + (idx+1) + ' pada ' + date + ' ?')) return;
-            deletePostItem(date, idx);
-          });
-          span.appendChild(delBtn);
-          container.appendChild(span);
-        });
-        // if no items show placeholder
-        if (!obj._items.length) container.innerHTML = '<span class="muted">(Belum ada post pada tanggal ini)</span>';
-        // update newPostTitle placeholder
-        document.getElementById('newPostTitle').value = '';
-        // ensure current index valid
-        if (window.currentPostIndex >= (obj._items.length || 0)) window.currentPostIndex = Math.max(0, (obj._items.length||0)-1);
-        // apply active class after rendering
-        Array.from(container.querySelectorAll('.post-item')).forEach(el => el.classList.toggle('active', parseInt(el.getAttribute('data-idx'),10) === window.currentPostIndex));
-      }
-
-      function selectPostIndex(idx){
-        const date = document.getElementById('dateInput')?.value;
-        if (!date) return alert('Pilih tanggal terlebih dahulu.');
-        const obj = window.dataStore.posts[date] || { _items: [] };
-        if (!Array.isArray(obj._items)) obj._items = [];
-        if (idx < 0 || idx >= obj._items.length) return;
-        window.currentPostIndex = idx;
-        renderPostItemsForDate(date);
-        populateFormFromSelected(date, idx);
-      }
-
-      function populateFormFromSelected(date, idx){
-        const obj = window.dataStore.posts[date] || { _items: [] };
-        const v = obj._items[idx] || {};
-        document.getElementById("link").value = v.link || "";
-        document.getElementById("reach").value = v.reach || 0;
-        document.getElementById("impressions").value = v.impressions || 0;
-        document.getElementById("likes").value = v.likes || 0;
-        document.getElementById("comments").value = v.comments || 0;
-        document.getElementById("shares").value = v.shares || 0;
-        document.getElementById("saves").value = v.saves || 0;
-        document.getElementById("contentTag").value = (v.tags && v.tags.length) ? v.tags.join(', ') : (v.tag || '');
-        document.getElementById("contentNotes").value = v.notes || "";
-        document.getElementById("websiteClicks").value = v.websiteClicks || 0;
-        document.getElementById("visit").value = v.visit || 0;
-        // set newPostTitle to item title when selecting to ease rename
-        document.getElementById("newPostTitle").value = v.title || "";
-        updateLastEditedDisplay(v.lastEdited || null);
-        updateEngagement();
-      }
-
-      function addPostItem(){
-        const date = document.getElementById("dateInput")?.value;
-        if (!date) { alert("Silakan pilih tanggal terlebih dahulu."); return; }
-        if (!window.dataStore.posts[date]) window.dataStore.posts[date] = { _items: [] };
-        if (!Array.isArray(window.dataStore.posts[date]._items)) window.dataStore.posts[date]._items = [];
-        let rawTitle = (document.getElementById("newPostTitle")?.value || "").trim();
-        // fallback to "Post N"
-        if (!rawTitle) rawTitle = 'Post ' + (window.dataStore.posts[date]._items.length + 1);
-        // ensure unique title among items for this date
-        const existing = window.dataStore.posts[date]._items.map(it => (it.title||'').trim().toLowerCase());
-        let uniqueTitle = rawTitle;
-        let counter = 2;
-        while (existing.includes(uniqueTitle.toLowerCase())) {
-          uniqueTitle = rawTitle + " (" + counter + ")";
-          counter++;
-        }
-        const newItem = normalizeItem({
-          title: uniqueTitle,
-          link: "",
-          reach: 0,
-          impressions: 0,
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          saves: 0,
-          visit: 0,
-          tag: "",
-          tags: [],
-          notes: "",
-          websiteClicks: 0,
-          lastEdited: new Date().toISOString()
-        });
-        window.dataStore.posts[date]._items.push(newItem);
-        window.currentPostIndex = window.dataStore.posts[date]._items.length - 1;
-        renderPostItemsForDate(date);
-        populateFormFromSelected(date, window.currentPostIndex);
-        showSaveNotification("Post baru dibuat untuk " + date + " — " + uniqueTitle);
-      }
-      window.addPostItem = addPostItem;
-
-      function deletePostItem(date, idx){
-        if (!date || !window.dataStore.posts[date]) return;
-        const arr = window.dataStore.posts[date]._items || [];
-        if (!Array.isArray(arr) || idx < 0 || idx >= arr.length) return;
-        arr.splice(idx,1);
-        if (!arr.length) delete window.dataStore.posts[date];
-        else window.dataStore.posts[date]._items = arr;
-        // adjust currentPostIndex
-        window.currentPostIndex = Math.max(0, Math.min(window.currentPostIndex, (window.dataStore.posts[date]?._items?.length || 0) - 1));
-        generateMonthOptions();
-        renderTableFiltered();
-        renderTagCloud();
-        renderPostItemsForDate(date);
-      }
-
-      // tag cloud & selection
-      window.selectedTags = window.selectedTags || new Set();
-
-      function renderTagCloud(){
-        const cloud = document.getElementById('tagCloud');
-        if (!cloud) return;
-        const counts = {};
-        Object.keys(dataStore.posts || {}).forEach(k => {
-          const p = dataStore.posts[k] || {};
-          const items = Array.isArray(p._items) ? p._items : [];
-          items.forEach(item => {
-            const coll = Array.isArray(item.tags) ? item.tags : (item.tag ? parseTagsFromString(item.tag) : []);
-            coll.forEach(t => counts[t] = (counts[t]||0) + 1);
-          });
-        });
-        cloud.innerHTML = "";
-        const keys = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-        if (!keys.length) { cloud.innerHTML = '<span class="muted">(Belum ada tag)</span>'; return; }
-        keys.forEach(t => {
-          const sp = document.createElement('span');
-          sp.className = 'badge' + (window.selectedTags.has(t) ? ' active' : '');
-          sp.setAttribute('data-tag', t);
-          sp.innerHTML = '#' + t + '<span class="tag-count">(' + counts[t] + ')</span>';
-          sp.addEventListener('click', function(){
-            if (window.selectedTags.has(t)) window.selectedTags.delete(t);
-            else window.selectedTags.add(t);
-            // sync input
-            const tf = document.getElementById('tagFilter');
-            if (tf) tf.value = Array.from(window.selectedTags).join(' ');
-            // rerender table & cloud
-            renderTableFilteredSorted();
-            renderTagCloud();
-          });
-          cloud.appendChild(sp);
-        });
-      }
-      window.renderTagCloud = renderTagCloud;
-
-      function selectTagFromTable(tag){
-        // when clicking a tag inside table, set it as single selected tag and update UI
-        window.selectedTags = new Set([tag]);
-        const tf = document.getElementById('tagFilter');
-        if (tf) tf.value = tag;
-        renderTableFilteredSorted();
-        renderTagCloud();
-      }
-
-      // months dropdowns
-      function generateMonthOptions(){
-        const select = document.getElementById("monthFilter");
-        if (!select) return;
-        const prev = select.value || "all";
-        select.innerHTML = '<option value="all">Semua</option>';
-        const set = new Set();
-        Object.keys(dataStore.posts || {}).forEach(d => { if (d && d.length>=7) set.add(d.slice(0,7)); });
-        Array.from(set).sort().forEach(m => {
-          const opt = document.createElement('option'); opt.value = m; opt.textContent = m; select.appendChild(opt);
-        });
-        if ([...select.options].some(o=>o.value===prev)) select.value = prev;
-        // also update profileMonthForReach if exists
-        const select2 = document.getElementById("profileMonthForReach");
-        if (select2) {
-          const prev2 = select2.value || "all";
-          select2.innerHTML = '<option value="all">Semua</option>';
-          Array.from(set).sort().forEach(m => { const opt = document.createElement('option'); opt.value = m; opt.textContent = m; select2.appendChild(opt); });
-          if ([...select2.options].some(o=>o.value===prev2)) select2.value = prev2;
-        }
-      }
-      window.generateMonthOptions = generateMonthOptions;
-
-      function generateProfileMonthOptions(){
-        const select = document.getElementById("profileMonthFilter");
-        if (!select) return;
-        const prev = select.value || "all";
-        select.innerHTML = '<option value="all">Semua</option>';
-        const set = new Set();
-        Object.keys(dataStore.posts || {}).forEach(d => { if (d && d.length>=7) set.add(d.slice(0,7)); });
-        Object.keys(dataStore.profileSnapshots || {}).forEach(m => set.add(m));
-        Array.from(set).sort().forEach(m => { const opt = document.createElement('option'); opt.value = m; opt.textContent = m; select.appendChild(opt); });
-        if ([...select.options].some(o=>o.value===prev)) select.value = prev;
-      }
-      window.generateProfileMonthOptions = generateProfileMonthOptions;
-
-      // monthly totals
-      function calculateMonthlyReach(month){
-        let total = 0;
-        Object.keys(dataStore.posts || {}).forEach(d => { if (!d) return; if (month && month!=="all" && !d.startsWith(month)) return; const p = dataStore.posts[d] || {}; const items = Array.isArray(p._items) ? p._items : []; items.forEach(it => { total += +(it.reach || 0); }); });
-        return total;
-      }
-      function calculateMonthlyImpressions(month){
-        let total = 0;
-        Object.keys(dataStore.posts || {}).forEach(d => { if (!d) return; if (month && month!=="all" && !d.startsWith(month)) return; const p = dataStore.posts[d] || {}; const items = Array.isArray(p._items) ? p._items : []; items.forEach(it => { total += +(it.impressions || 0); }); });
-        return total;
-      }
-      function updateMonthlyReachDisplay(){
-        const sel = document.getElementById("profileMonthForReach") || document.getElementById("profileMonthFilter");
-        const month = sel ? sel.value : "all";
-        const el = document.getElementById("monthlyReachTotal");
-        if (el) el.innerText = calculateMonthlyReach(month);
-      }
-      function updateMonthlyImpressionsDisplay(){
-        const sel = document.getElementById("profileMonthForReach") || document.getElementById("profileMonthFilter");
-        const month = sel ? sel.value : "all";
-        const el = document.getElementById("monthlyImpressionsTotal");
-        if (el) el.innerText = calculateMonthlyImpressions(month);
-      }
-
-      // profile inputs
-      function renderProfileInputs(){
-        const p = dataStore.profile || {};
-        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v === undefined || v === null) ? 0 : v; };
-        if (document.getElementById("username")) document.getElementById("username").value = p.username || "";
-        setVal("followersStart", p.followersStart || 0);
-        setVal("followersEnd", p.followersEnd || 0);
-        setVal("age18_24", p.ageRange?.["18-24"] || 0);
-        setVal("age25_34", p.ageRange?.["25-34"] || 0);
-        setVal("age35_44", p.ageRange?.["35-44"] || 0);
-        setVal("age45_54", p.ageRange?.["45-54"] || 0);
-        setVal("age55_64", p.ageRange?.["55-64"] || 0);
-        setVal("male", p.gender?.male || 0);
-        setVal("female", p.gender?.female || 0);
-        renderUsernameAreas();
-      }
-
-      function renderUsernamePreview(){
-        const u = document.getElementById("username") ? document.getElementById("username").value : "";
-        const preview = document.getElementById("usernamePreview");
-        if (preview) preview.textContent = buildProfileText(u) || "(belum diisi)";
-      }
-
-      function renderUsernameAreas(){
-        const p = dataStore.profile || {};
-        const uname = p.username || (document.getElementById('username')?.value || "");
-        const linkSpan = document.getElementById('igProfileLink');
-        if (!linkSpan) return;
-        if (uname) {
-          const url = buildProfileURL(uname);
-          const text = buildProfileText(uname);
-          linkSpan.innerHTML = `<a href="${url}" target="_blank">${text}</a>`;
-        } else linkSpan.textContent = "(belum diisi)";
-        renderUsernamePreview();
-      }
-
-      function updateProfile(){
-        dataStore.profile.username = normalizeUsername(document.getElementById("username")?.value || "");
-        dataStore.profile.followersStart = +document.getElementById("followersStart")?.value || 0;
-        dataStore.profile.followersEnd = +document.getElementById("followersEnd")?.value || 0;
-        dataStore.profile.ageRange["18-24"] = +document.getElementById("age18_24")?.value || 0;
-        dataStore.profile.ageRange["25-34"] = +document.getElementById("age25_34")?.value || 0;
-        dataStore.profile.ageRange["35-44"] = +document.getElementById("age35_44")?.value || 0;
-        dataStore.profile.ageRange["45-54"] = +document.getElementById("age45_54")?.value || 0;
-        dataStore.profile.ageRange["55-64"] = +document.getElementById("age55_64")?.value || 0;
-        dataStore.profile.gender.male = +document.getElementById("male")?.value || 0;
-        dataStore.profile.gender.female = +document.getElementById("female")?.value || 0;
-
-        const start = dataStore.profile.followersStart || 0;
-        const end = dataStore.profile.followersEnd || 0;
-        const growth = end - start;
-        const growthRate = start > 0 ? (growth / start) * 100 : 0;
-
-        let totalReach = 0, totalImpr = 0, totalEng = 0, count = 0;
-        Object.keys(dataStore.posts || {}).forEach(k => {
-          const p = dataStore.posts[k] || {};
-          const items = Array.isArray(p._items) ? p._items : [];
-          items.forEach(d => {
-            totalReach += d.reach || 0;
-            totalImpr += d.impressions || 0;
-            const er = (d && d.engagement !== undefined) ? +d.engagement : (d.reach>0 ? (((d.likes||0)+(d.comments||0)+(d.shares||0)+(d.saves||0))/(d.reach||1)*100) : 0);
-            totalEng += er; count++;
-          });
-        });
-        const avgReachRate = end > 0 ? (totalReach / end) * 100 : 0;
-        const avgEngagement = count > 0 ? (totalEng / count) : 0;
-
-        const setText = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-        setText("followerGrowth", growth);
-        setText("growthRate", growthRate.toFixed(1) + "%");
-        setText("reachRate", avgReachRate.toFixed(1) + "%");
-        setText("avgEngagement", avgEngagement.toFixed(1) + "%");
-
-        const canvas = document.getElementById("profileChart");
-        if (canvas) {
-          const ctx = canvas.getContext("2d");
-          const labels = ["Follower Growth","Growth Rate %","Avg Reach Rate %","Avg Engagement %"];
-          const values = [growth, Number(growthRate.toFixed(1)), Number(avgReachRate.toFixed(1)), Number(avgEngagement.toFixed(1))];
-          if (window._profileChart) window._profileChart.destroy();
-          window._profileChart = new Chart(ctx, { type:"bar", data:{ labels, datasets:[{ label:"Profile Metrics", data: values, backgroundColor:["#4e79a7","#f28e2b","#e15759","#76b7b2"] }] }, options:{ responsive:true, scales:{ y:{ beginAtZero:true } } } });
-        }
-
-        updateMonthlyReachDisplay();
-        updateMonthlyImpressionsDisplay();
-        renderUsernameAreas();
-      }
-
-      // engagement calculator
-      function updateEngagement(){
-        const reach = +document.getElementById("reach")?.value || 0;
-        const likes = +document.getElementById("likes")?.value || 0;
-        const comments = +document.getElementById("comments")?.value || 0;
-        const shares = +document.getElementById("shares")?.value || 0;
-        const saves = +document.getElementById("saves")?.value || 0;
-        const er = reach > 0 ? ((likes+comments+shares+saves)/reach)*100 : 0;
-        const el = document.getElementById("engagementRate");
-        if (el) el.innerHTML = "<strong>Engagement Rate:</strong> " + er.toFixed(1) + "%";
-      }
-
-      let autosaveTimer = null;
-      function scheduleAutoSave(ms){
-        try { clearTimeout(autosaveTimer); } catch(e){}
-        // only schedule if autosave enabled in UI
-        const enabled = document.getElementById('enableAutoSave')?.checked;
-        if (!enabled) return;
-        autosaveTimer = setTimeout(function(){ if (typeof saveData === 'function') saveData(); }, ms || 1200);
-      }
-
-      function updateLastEditedDisplay(iso){
-        const el = document.getElementById("lastEdited");
-        if (!el) return;
-        if (!iso) { el.textContent = "-"; return; }
-        try { el.textContent = new Date(iso).toLocaleString(); } catch(e) { el.textContent = iso; }
-      }
-
-      // save data (now saves into selected item on selected date)
-      function saveData(){
-        const date = document.getElementById("dateInput")?.value;
-        if (!date) { alert("Silakan pilih tanggal terlebih dahulu."); return; }
-        if (!window.dataStore.posts[date]) window.dataStore.posts[date] = { _items: [] };
-        if (!Array.isArray(window.dataStore.posts[date]._items)) window.dataStore.posts[date]._items = [];
-
-        const link = document.getElementById("link")?.value || "";
-        const reach = +document.getElementById("reach")?.value || 0;
-        const impressions = +document.getElementById("impressions")?.value || 0;
-        const likes = +document.getElementById("likes")?.value || 0;
-        const comments = +document.getElementById("comments")?.value || 0;
-        const shares = +document.getElementById("shares")?.value || 0;
-        const saves = +document.getElementById("saves")?.value || 0;
-        const visit = +document.getElementById("visit")?.value || 0;
-        const engagement = reach > 0 ? ((likes+comments+shares+saves)/reach)*100 : 0;
-        const rawTag = document.getElementById("contentTag")?.value || "";
-        const tags = parseTagsFromString(rawTag);
-        const idx = window.currentPostIndex || 0;
-        // ensure item exists
-        if (!window.dataStore.posts[date]._items[idx]) {
-          // create placeholder items up to idx
-          while (window.dataStore.posts[date]._items.length <= idx) {
-            window.dataStore.posts[date]._items.push(normalizeItem({title: 'Post ' + (window.dataStore.posts[date]._items.length+1)}));
-          }
-        }
-        const titleVal = (document.getElementById("newPostTitle")?.value || "").trim();
-        const item = Object.assign({}, window.dataStore.posts[date]._items[idx]);
-        Object.assign(item, { link, reach, impressions, likes, comments, shares, saves, visit, engagement, tag: rawTag, tags, notes: document.getElementById("contentNotes")?.value || "", websiteClicks: +document.getElementById("websiteClicks")?.value || 0, lastEdited: new Date().toISOString() });
-        if (titleVal) item.title = titleVal;
-        window.dataStore.posts[date]._items[idx] = normalizeItem(item);
-
-        // update profile basic snapshot fields
-        dataStore.profile = {
-          username: normalizeUsername(document.getElementById("username")?.value || ""),
-          followersStart: +document.getElementById("followersStart")?.value || 0,
-          followersEnd: +document.getElementById("followersEnd")?.value || 0,
-          ageRange: {
-            "18-24": +document.getElementById("age18_24")?.value || 0,
-            "25-34": +document.getElementById("age25_34")?.value || 0,
-            "35-44": +document.getElementById("age35_44")?.value || 0,
-            "45-54": +document.getElementById("age45_54")?.value || 0,
-            "55-64": +document.getElementById("age55_64")?.value || 0
-          },
-          gender: { male: +document.getElementById("male")?.value || 0, female: +document.getElementById("female")?.value || 0 }
-        };
-
-        normalizePostsStructure();
-        generateMonthOptions();
-        generateProfileMonthOptions();
-        renderTableFiltered();
-        renderUsernameAreas();
-        renderProfileInputs();
-        updateMonthlyReachDisplay();
-        updateMonthlyImpressionsDisplay();
-        renderTagCloud();
-        updateLastEditedDisplay(new Date().toISOString());
-
-        // export option
-        if (document.getElementById('exportOnSave')?.checked) exportJson();
-        showSaveNotification("Data tersimpan untuk " + date);
-        // re-render items list and keep selection
-        renderPostItemsForDate(date);
-      }
-      // Wrap original saveData to also save to localStorage
-      const originalSaveData = saveData;
-      saveData = function() {
-        originalSaveData();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.dataStore));
-      }
-      window.saveData = saveData;
-
-      // handle date change
-      function handleDateChange(){
-        const date = document.getElementById("dateInput")?.value;
-        if (!date) return;
-        // ensure structure exists
-        if (!window.dataStore.posts[date]) window.dataStore.posts[date] = { _items: [] };
-        if (!Array.isArray(window.dataStore.posts[date]._items)) window.dataStore.posts[date]._items = [];
-        // render items & select first if none selected
-        if (window.dataStore.posts[date]._items.length === 0) window.currentPostIndex = 0;
-        else window.currentPostIndex = Math.min(window.currentPostIndex || 0, window.dataStore.posts[date]._items.length - 1);
-        renderPostItemsForDate(date);
-        populateFormFromSelected(date, window.currentPostIndex);
-        updateEngagement();
-      }
-      window.handleDateChange = handleDateChange;
-
-      // table rendering & helpers
-      function escapeHtml(str){
-        return String(str || "").replace(/[&<>"']/g, function(m){
-          return ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[m];
-        });
-      }
-
-      function renderTableFiltered(){
-        return renderTableFilteredSorted();
-      }
-      window.renderTableFiltered = renderTableFiltered;
-
-      function renderTableFilteredSorted(){
-        const selectedMonth = document.getElementById("monthFilter")?.value || "all";
-        const tbody = document.querySelector("#dataTable tbody");
-        if (!tbody) return;
-        tbody.innerHTML = "";
-        const entries = [];
-        const dates = Object.keys(dataStore.posts || {});
-        dates.forEach(date => {
-          const p = dataStore.posts[date] || {};
-          const items = Array.isArray(p._items) ? p._items : [];
-          items.forEach((v, i) => entries.push({ date, idx: i, data: v, token: `${date}||${i}` }));
-        });
-
-        // filter month
-        let filtered = entries.filter(e => {
-          if (selectedMonth !== "all" && !e.date.startsWith(selectedMonth)) return false;
-          return true;
-        });
-
-        // selectedTags filter: if selectedTags set, only include entries that contain at least one selected tag
-        const selectedKwSet = new Set((document.getElementById('tagFilter')?.value || '').toLowerCase().split(/\s+/).filter(Boolean));
-        if (window.selectedTags && window.selectedTags.size) {
-          // if user used tag cloud to select tags, ensure keyword sync
-          Array.from(window.selectedTags).forEach(t => selectedKwSet.add(t));
-        }
-
-        if (selectedKwSet.size) {
-          filtered = filtered.filter(e => {
-            const txtFields = ((e.data.title||"") + " " + (e.data.link||"") + " " + (e.data.notes||"") + " " + ((Array.isArray(e.data.tags) ? e.data.tags.join(' ') : (e.data.tag||""))) + " " + e.date).toLowerCase();
-            // must contain all words in selectedKwSet (improves responsiveness)
-            for (const w of selectedKwSet) {
-              if (!txtFields.includes(w)) return false;
-            }
-            return true;
-          });
-        }
-
-        // sorting
-        const sortField = document.getElementById('sortField')?.value || 'date';
-        const sortDir = document.getElementById('sortDir')?.value || 'none';
-        if (sortDir && sortDir !== 'none') {
-          filtered.sort((a,b) => {
-            let va, vb;
-            if (sortField === 'date') { va = a.date; vb = b.date; }
-            else if (sortField === 'engagement') {
-              const calc = d => (d && d.engagement !== undefined) ? +d.engagement : ((d && d.reach) ? (((d.likes||0)+(d.comments||0)+(d.shares||0)+(d.saves||0)) / (d.reach||1) * 100) : 0);
-              va = calc(a.data); vb = calc(b.data);
-            } else {
-              va = +(a.data?.[sortField] || 0);
-              vb = +(b.data?.[sortField] || 0);
-            }
-            if (sortDir === 'highest') return vb - va;
-            if (sortDir === 'lowest') return va - vb;
-            return 0;
-          });
-        } else {
-          filtered.sort((a,b) => b.date.localeCompare(a.date));
-        }
-
-        // render rows
-        filtered.forEach(entry => {
-          const date = entry.date;
-          const d = entry.data || {};
-          const rate = (d && d.engagement !== undefined) ? d.engagement : (d.reach>0 ? (((d.likes||0)+(d.comments||0)+(d.shares||0)+(d.saves||0))/(d.reach||1)*100) : 0);
-          const tags = Array.isArray(d.tags) ? d.tags : (d.tag ? parseTagsFromString(d.tag) : []);
-          const tagHtml = tags.map(t => `<span class="badge" onclick="selectTagFromTable('${escapeHtml(t)}')">#${escapeHtml(t)}</span>`).join(' ');
-          const linkHtml = d.link ? `<a href="${escapeHtml(d.link)}" target="_blank">${escapeHtml(d.link)}</a>` : "";
-          const titleHtml = d.title ? `<div class="metaSmall">(${escapeHtml(d.title)})</div>` : "";
-          const notesHtml = d.notes ? `<div class="metaSmall">Notes: ${escapeHtml(d.notes)}</div>` : "";
-          const meta = (tagHtml || titleHtml || notesHtml) ? `<div style="margin-top:6px; text-align:left;">${tagHtml}${titleHtml}${notesHtml}</div>` : "";
-          const row = `<tr>
-            <td>${escapeHtml(date)}</td>
-            <td style="text-align:left;">${linkHtml}${meta}</td>
-            <td>${d.reach||0}</td><td>${d.impressions||0}</td><td>${d.likes||0}</td><td>${d.comments||0}</td>
-            <td>${d.shares||0}</td><td>${d.saves||0}</td>
-            <td>${Number(rate).toFixed(1)}%</td>
-            <td><button onclick="editData('${entry.token}')">Ubah</button> <button onclick="deleteData('${entry.token}')">Hapus</button></td>
-          </tr>`;
-          tbody.insertAdjacentHTML("beforeend", row);
-        });
-
-        try { applyCompactSetting(); } catch(e){}
-        renderTagCloud();
-        // update visuals of tag cloud to reflect current tagFilter tokens
-        syncSelectedTagsFromFilter();
-      }
-      window.renderTableFilteredSorted = renderTableFilteredSorted;
-
-      function syncSelectedTagsFromFilter(){
-        const tfVal = (document.getElementById('tagFilter')?.value || '').trim().toLowerCase();
-        if (!tfVal) {
-          window.selectedTags = new Set();
-        } else {
-          // parse words and set as selected tags set
-          const arr = tfVal.split(/\s+/).filter(Boolean);
-          window.selectedTags = new Set(arr);
-        }
-        // update cloud visuals
-        document.querySelectorAll('#tagCloud .badge').forEach(b=> {
-          const t = b.getAttribute('data-tag');
-          b.classList.toggle('active', window.selectedTags.has(t));
-        });
-      }
-
-      // compact settings
-      function applyCompactSetting(){
-        const compact = document.getElementById('compactToggle')?.checked;
-        const limitRaw = document.getElementById('compactLimit')?.value;
-        const limit = Math.max(1, parseInt(limitRaw||'10',10) || 10);
-        const tbody = document.querySelector('#dataTable tbody');
-        if (!tbody) return;
-        Array.from(tbody.querySelectorAll('tr')).forEach((r,i) => r.style.display = (compact && i>=limit) ? 'none' : '');
-      }
-      function initCompactObserver(){
-        const tbody = document.querySelector('#dataTable tbody');
-        if (!tbody) return;
-        applyCompactSetting();
-        const obs = new MutationObserver(()=>applyCompactSetting());
-        obs.observe(tbody, { childList: true });
-        document.getElementById('compactToggle')?.addEventListener('change', applyCompactSetting);
-        document.getElementById('compactLimit')?.addEventListener('input', applyCompactSetting);
-      }
-
-      function toggleTable(){
-        const el = document.getElementById('postSection');
-        if (!el) return;
-        el.style.display = (el.style.display === 'none') ? '' : 'none';
-      }
-      window.toggleTable = toggleTable;
-
-      function resetTagCloud(){
-        const tf = document.getElementById('tagFilter');
-        if (tf) tf.value = '';
-        window.selectedTags = new Set();
-        document.querySelectorAll('#tagCloud .badge').forEach(b=>b.classList.remove('active'));
-        renderTableFiltered();
-        renderTagCloud();
-      }
-      window.resetTagCloud = resetTagCloud;
-
-      // edit/delete functions (tokens are date||idx)
-      function editData(token){
-        const parts = String(token||'').split('||');
-        const date = parts[0];
-        const idx = parts.length>1 ? parseInt(parts[1],10) : 0;
-        if (!date || !dataStore.posts[date]) return alert("Data tidak ditemukan untuk " + token);
-        document.getElementById("dateInput").value = date;
-        renderPostItemsForDate(date);
-        const sel = document.getElementById("postItemsList");
-        if (sel) {
-          window.currentPostIndex = idx;
-          renderPostItemsForDate(date);
-        }
-        populateFormFromSelected(date, idx);
-        alert("Data dimuat untuk diedit: " + token);
-      }
-      window.editData = editData;
-
-      function deleteData(token){
-        const parts = String(token||'').split('||');
-        const date = parts[0];
-        const idx = parts.length>1 ? parseInt(parts[1],10) : 0;
-        if (!date || !dataStore.posts[date]) return alert("Data tidak ditemukan untuk " + token);
-        if (!confirm("Hapus data untuk " + token + "?")) return;
-        if (Array.isArray(dataStore.posts[date]._items) && dataStore.posts[date]._items[idx]) {
-          dataStore.posts[date]._items.splice(idx,1);
-          if (!dataStore.posts[date]._items.length) delete dataStore.posts[date];
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(window.dataStore));
-        }
-        generateMonthOptions();
-        renderTableFiltered();
-        updateMonthlyReachDisplay();
-        updateMonthlyImpressionsDisplay();
-        renderTagCloud();
-        // Update post items list if current date matches
-        if (document.getElementById('dateInput')?.value === date) renderPostItemsForDate(date);
-      }
-      window.deleteData = deleteData;
-
-      // export/import
-      function exportJson(){
-        // export current dataStore as-is (uses _items structure)
-        const blob = new Blob([JSON.stringify(dataStore, null, 2)], { type: "application/json" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiktok_insight_data.json"; a.click();
-      }
-      window.exportJson = exportJson;
-
-      function loadJson(event){
-        const file = event?.target?.files && event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e){
-          try {
-            const parsed = JSON.parse(e.target.result);
-            if (parsed.profile) dataStore.profile = Object.assign({}, dataStore.profile || {}, parsed.profile);
-            if (parsed.profileSnapshots) dataStore.profileSnapshots = Object.assign({}, dataStore.profileSnapshots || {}, parsed.profileSnapshots);
-            if (parsed.posts) {
-              // merge posts, normalize numbers, accept both legacy and new formats
-              Object.keys(parsed.posts).forEach(d => {
-                const p = parsed.posts[d] || {};
-                // If parsed has _items already use them
-                if (Array.isArray(p._items)) {
-                  p._items = p._items.map(v => normalizeItem(v));
-                  dataStore.posts[d] = { _items: p._items };
-                } else {
-                  // legacy: main object + optional _variants
-                  const items = [];
-                  const main = Object.assign({}, p);
-                  const variants = Array.isArray(main._variants) ? main._variants : [];
-                  if (main._variants) delete main._variants;
-                  items.push(normalizeItem(main));
-                  (variants || []).forEach(v => items.push(normalizeItem(v)));
-                  dataStore.posts[d] = { _items: items };
-                }
-              });
-            }
-            // normalize fully to ensure new structure
-            normalizePostsStructure();
-            generateMonthOptions();
-            generateProfileMonthOptions();
-            renderTableFiltered();
-            renderProfileInputs();
-            renderUsernameAreas();
-            updateMonthlyReachDisplay();
-            updateMonthlyImpressionsDisplay();
-            renderTagCloud();
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(window.dataStore));
-            alert("Data JSON berhasil dimuat! (" + Object.keys(dataStore.posts || {}).length + " tanggal, " + Object.keys(dataStore.profileSnapshots || {}).length + " snapshot)");
-          } catch(err){
-            console.error('loadJson error', err);
-            alert("File JSON tidak valid atau terjadi kesalahan parsing: " + (err && err.message ? err.message : 'unknown error'));
-          }
-        };
-        reader.readAsText(file);
-      }
-      window.loadJson = loadJson;
-
-      // CSV exports
-      function exportCsvPostsMode(mode){
-        const selectedMonth = document.getElementById("monthFilter")?.value || "all";
-        const rows = [["Date","Link","Reach","Impressions","Likes","Comments","Shares","Saves","Engagement Rate","Tags"]];
-        Object.keys(dataStore.posts || {}).sort().forEach(date => {
-          if (mode==="filter" && selectedMonth!=="all" && !date.startsWith(selectedMonth)) return;
-          const p = dataStore.posts[date] || {};
-          const items = Array.isArray(p._items) ? p._items : [];
-          items.forEach(it => {
-            const d = it || {};
-            const rate = d.engagement !== undefined ? d.engagement : (d.reach>0?(((d.likes||0)+(d.comments||0)+(d.shares||0)+(d.saves||0))/ (d.reach||1) *100):0);
-            rows.push([date, d.link||"", d.reach||0, d.impressions||0, d.likes||0, d.comments||0, d.shares||0, d.saves||0, Number(rate).toFixed(1) + "%", (d.tags||[]).join(' ')]);
-          });
-        });
-        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = mode==="filter" ? "tiktok_posts_filtered.csv" : "tiktok_posts_all.csv"; a.click();
-      }
-      window.exportCsvPosts = function(){ exportCsvPostsMode("all"); };
-      window.exportCsvPostsFiltered = function(){ exportCsvPostsMode("filter"); };
-
-      function exportCsvProfile(){
-        const p = dataStore.profile || {};
-        const rows = [
-          ["Username","Profile URL","Followers Start","Followers End","Male %","Female %","18-24","25-34","35-44","45-54","55-64"],
-          [p.username ? ("@" + normalizeUsername(p.username)) : "", buildProfileURL(p.username||""), p.followersStart||0, p.followersEnd||0, p.gender?.male||0, p.gender?.female||0, p.ageRange?.["18-24"]||0, p.ageRange?.["25-34"]||0, p.ageRange?.["35-44"]||0, p.ageRange?.["45-54"]||0, p.ageRange?.["55-64"]||0]
-        ];
-        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiktok_profile_data.csv"; a.click();
-      }
-      window.exportCsvProfile = exportCsvProfile;
-
-      // snapshots
-      function saveProfileSnapshot(){
-        const month = document.getElementById("profileMonthInput")?.value;
-        if (!month) return alert("Silakan pilih bulan (YYYY-MM) untuk menyimpan snapshot.");
-        const snap = {
-          username: normalizeUsername(document.getElementById("username")?.value || ""),
-          followersStart: +document.getElementById("followersStart")?.value || 0,
-          followersEnd: +document.getElementById("followersEnd")?.value || 0,
-          ageRange: {
-            "18-24": +document.getElementById("age18_24")?.value || 0,
-            "25-34": +document.getElementById("age25_34")?.value || 0,
-            "35-44": +document.getElementById("age35_44")?.value || 0,
-            "45-54": +document.getElementById("age45_54")?.value || 0,
-            "55-64": +document.getElementById("age55_64")?.value || 0
-          },
-          gender: { male: +document.getElementById("male")?.value || 0, female: +document.getElementById("female")?.value || 0 }
-        };
-        dataStore.profileSnapshots[month] = snap;
-        generateProfileMonthOptions();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.dataStore));
-        alert("Snapshot profile tersimpan untuk " + month);
-      }
-      window.saveProfileSnapshot = saveProfileSnapshot;
-
-      function loadProfileSnapshot(){
-        const selected = document.getElementById("profileMonthFilter")?.value;
-        if (!selected || selected === "all") { renderProfileInputs(); updateProfile(); updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); return; }
-        document.getElementById("profileMonthInput").value = selected;
-        const snap = dataStore.profileSnapshots[selected];
-        if (!snap) { renderProfileInputs(); updateProfile(); updateMonthlyReachDisplay(); updateMonthlyImpressionsDisplay(); return; }
-        document.getElementById("username").value = snap.username || "";
-        document.getElementById("followersStart").value = snap.followersStart || 0;
-        document.getElementById("followersEnd").value = snap.followersEnd || 0;
-        document.getElementById("age18_24").value = snap.ageRange?.["18-24"] || 0;
-        document.getElementById("age25_34").value = snap.ageRange?.["25-34"] || 0;
-        document.getElementById("age35_44").value = snap.ageRange?.["35-44"] || 0;
-        document.getElementById("age45_54").value = snap.ageRange?.["45-54"] || 0;
-        document.getElementById("age55_64").value = snap.ageRange?.["55-64"] || 0;
-        document.getElementById("male").value = snap.gender?.male || 0;
-        document.getElementById("female").value = snap.gender?.female || 0;
-        renderUsernamePreview();
-        updateProfile();
-      }
-      window.loadProfileSnapshot = loadProfileSnapshot;
-
-      function deleteProfileSnapshot(){
-        const selected = document.getElementById("profileMonthFilter")?.value;
-        if (!selected || selected === "all") return alert("Pilih snapshot bulan terlebih dahulu.");
-        if (!confirm("Hapus snapshot untuk " + selected + " ?")) return;
-        delete dataStore.profileSnapshots[selected];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.dataStore));
-        generateProfileMonthOptions();
-        renderProfileInputs();
-        updateProfile();
-      }
-      window.deleteProfileSnapshot = deleteProfileSnapshot;
-
-      // UI init
-      function showSaveNotification(msg){
-        try {
-          const id = 'save-notif';
-          let n = document.getElementById(id);
-          if (!n) {
-            n = document.createElement('div'); n.id = id;
-            n.style.position = 'fixed'; n.style.right = '16px'; n.style.top = '16px';
-            n.style.background = '#111'; n.style.color = '#fff'; n.style.padding = '10px 14px';
-            n.style.borderRadius = '8px'; n.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-            n.style.zIndex = 9999; n.style.fontSize = '13px'; n.style.transition = 'opacity 400ms'; n.style.opacity = '0';
-            document.body.appendChild(n);
-          }
-          n.textContent = msg || 'Tersimpan';
-          n.style.opacity = '1';
-          if (n._hideTimeout) clearTimeout(n._hideTimeout);
-          n._hideTimeout = setTimeout(()=>{ n.style.opacity = '0'; }, 1700);
-        } catch(e){}
-      }
-      window.showSaveNotification = showSaveNotification;
-
-      // wire events on DOMContentLoaded
-      document.addEventListener('DOMContentLoaded', function(){
-        // inputs
-        document.getElementById('dateInput')?.addEventListener('change', handleDateChange);
-        ["link","reach","impressions","likes","comments","shares","saves","contentTag","contentNotes","websiteClicks","visit","newPostTitle"].forEach(id=>{
-          const el = document.getElementById(id);
-          if (el) el.addEventListener('input', function(){ updateEngagement(); scheduleAutoSave(1200); });
-        });
-        document.getElementById('username')?.addEventListener('input', renderUsernamePreview);
-        document.getElementById('profileMonthFilter')?.addEventListener('change', loadProfileSnapshot);
-        document.getElementById('monthFilter')?.addEventListener('change', renderTableFiltered);
-        document.getElementById('sortField')?.addEventListener('change', function(){ renderTableFiltered(); });
-        document.getElementById('sortDir')?.addEventListener('change', function(){ renderTableFiltered(); });
-        document.getElementById('tagFilter')?.addEventListener('input', function(){ 
-          // sync selectedTags visually and do immediate rendering
-          syncSelectedTagsFromFilter();
-          renderTableFiltered();
-        });
-        document.getElementById('applyTableFilterBtn')?.addEventListener('click', function(){ renderTableFiltered(); });
-
-        document.getElementById('jsonFile')?.addEventListener('change', loadJson);
-
-        initCompactObserver();
-
-        // initialize UI from dataStore
-        normalizePostsStructure();
-        renderProfileInputs();
-        renderUsernameAreas();
-        generateMonthOptions();
-        generateProfileMonthOptions();
-        renderTableFiltered();
-        updateMonthlyReachDisplay();
-        updateMonthlyImpressionsDisplay();
-        renderTagCloud();
-      });
-
-      // expose some functions globally
-      window.renderPostVariantsForDate = renderPostVariantsForDate;
-      window.getVariantsForDate = getVariantsForDate;
-      window.buildProfileURL = buildProfileURL;
-      window.buildProfileText = buildProfileText;
-      window.renderProfileInputs = renderProfileInputs;
-      window.renderUsernameAreas = renderUsernameAreas;
-      window.renderTagCloud = renderTagCloud;
-      window.generateMonthOptions = generateMonthOptions;
-      window.generateProfileMonthOptions = generateProfileMonthOptions;
-      window.updateMonthlyReachDisplay = updateMonthlyReachDisplay;
-      window.updateMonthlyImpressionsDisplay = updateMonthlyImpressionsDisplay;
-      window.updateEngagement = updateEngagement;
-      window.scheduleAutoSave = scheduleAutoSave;
-      window.applyCompactSetting = applyCompactSetting;
-      window.renderTableFilteredSorted = renderTableFilteredSorted;
-      window.saveData = saveData;
-      window.loadJson = loadJson;
-      window.editData = editData;
-      window.deleteData = deleteData;
-      window.saveProfileSnapshot = saveProfileSnapshot;
-      window.loadProfileSnapshot = loadProfileSnapshot;
-      window.deleteProfileSnapshot = deleteProfileSnapshot;
-      window.exportJson = exportJson;
-      window.selectTagFromTable = selectTagFromTable;
-      // expose updateProfile so inline onclick="updateProfile()" works
-      window.updateProfile = updateProfile;
-    })();
-  </script>
-  <script>
-(function(){
-  // --- Helpers to compute totals from a given snapshot object ---
-  function computeTotalsOnSnapshot(snapshot, month) {
-    month = month || 'all';
-    const out = { posts:0, reach:0, impressions:0, likes:0, comments:0, shares:0, saves:0, websiteClicks:0 };
-    try {
-      const postsObj = snapshot && snapshot.posts ? snapshot.posts : {};
-      Object.keys(postsObj).forEach(d => {
-        if (!d) return;
-        if (month !== 'all' && !d.startsWith(month)) return;
-        const p = postsObj[d] || {};
-        const items = Array.isArray(p._items) ? p._items : [];
-        out.posts += items.length;
-        items.forEach(it => {
-          out.reach += +(it.reach || 0);
-          out.impressions += +(it.impressions || 0);
-          out.likes += +(it.likes || 0);
-          out.comments += +(it.comments || 0);
-          out.shares += +(it.shares || 0);
-          out.saves += +(it.saves || 0);
-          out.websiteClicks += +(it.websiteClicks || 0);
-        });
-      });
-    } catch(e){ console.error('computeTotalsOnSnapshot', e); }
-    return out;
-  }
-
-  // --- UI render for insight totals (below Export CSV Postingan) ---
-  function createInsightTotalsContainerIfMissing() {
-    if (document.getElementById('insightTotalsWrap')) return;
-    try {
-      // find the "Export CSV Postingan" button by exact text (fallback to first export button)
-      const btn = Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').trim().startsWith('Export CSV (Sesuai Filter)')) || Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').toLowerCase().includes('export csv post'));
-      if (!btn) {
-        // fallback: append under monthFilter
-        const mf = document.getElementById('monthFilter');
-        if (!mf) return;
-        const wrap = document.createElement('div');
-        wrap.id = 'insightTotalsWrap';
-        mf.parentNode.insertBefore(wrap, mf.nextSibling);
-        return;
-      }
-      const wrap = document.createElement('div');
-      wrap.id = 'insightTotalsWrap';
-      wrap.style.marginTop = '10px';
-      wrap.style.display = 'flex';
-      wrap.style.gap = '8px';
-      wrap.style.flexWrap = 'wrap';
-      wrap.style.alignItems = 'center';
-      btn.parentNode.insertBefore(wrap, btn.nextSibling);
-    } catch(e){ console.error('createInsightTotalsContainerIfMissing', e); }
-  }
-
-  function mkBadgeHTML(label, value) {
-    return `<div class="insight-badge" title="${label}" style="background:#f4f4f4;border:1px solid #ddd;padding:6px 10px;border-radius:10px;display:inline-flex;flex-direction:column;align-items:center;min-width:84px;">
-      <div style="font-size:13px;color:#333;font-weight:600;">${String(value)}</div>
-      <div style="font-size:11px;color:#666;margin-top:4px;">${label}</div>
-    </div>`;
-  }
-
-  function updateStatsUI() {
-    try {
-      createInsightTotalsContainerIfMissing();
-      const wrap = document.getElementById('insightTotalsWrap');
-      if (!wrap) return;
-      const month = document.getElementById('monthFilter')?.value || 'all';
-      const totals = computeTotalsOnSnapshot(window.dataStore || {}, month);
-      // build badges order: posts, reach, impressions, likes, comments, shares, saves, websiteClicks
-      const html = [
-        mkBadgeHTML('Postingan', totals.posts),
-        mkBadgeHTML('Reach', totals.reach),
-        mkBadgeHTML('Tayangan', totals.impressions),
-        mkBadgeHTML('Suka', totals.likes),
-        mkBadgeHTML('Komentar', totals.comments),
-        mkBadgeHTML('Bagikan', totals.shares),
-        mkBadgeHTML('Tersimpan', totals.saves),
-        mkBadgeHTML('Klik Tautan Bio', totals.websiteClicks)
-      ].join('');
-      wrap.innerHTML = html;
-    } catch(e){ console.error('updateStatsUI', e); }
-  }
-
-  // --- History Panel (collapsible / hide-show) ---
-  function createHistoryPanelIfMissing() {
-    if (document.getElementById('historyPanelWrap')) return;
-    try {
-      // Insert the history/undo UI at the bottom of the Insight Konten .content block
-      const insightSections = Array.from(document.querySelectorAll('.content'));
-      let target = null;
-      // Find the section whose first h3 contains 'Insight Konten'
-      for (const sec of insightSections) {
-        const h3 = sec.querySelector('h3');
-        if (h3 && (h3.textContent || '').trim().toLowerCase().includes('insight konten')) { target = sec; break; }
-      }
-      if (!target) target = document.body;
-
-      const panel = document.createElement('div');
-      panel.id = 'historyPanelWrap';
-      panel.style.marginTop = '12px';
-      panel.style.borderTop = '1px dashed #ccc';
-      panel.style.paddingTop = '8px';
-      panel.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+      <div class="form-row" style="background:#f5f5f5; padding:10px; border-radius:6px; gap:10px;">
+        <div style="flex:1;">
+          <label>Filter Bulan:</label>
           <div style="display:flex; align-items:center; gap:8px;">
-            <button id="btn-undo" title="Undo">↶ Undo</button>
-            <button id="btn-redo" title="Redo">↷ Redo</button>
-            <button id="btn-save-snap" title="Save Snapshot">💾 Save Snapshot</button>
-            <button id="btn-clear-history" title="Clear History">🗑️ Clear History</button>
+            <select id="monthFilter">
+              <option value="all">Semua</option>
+            </select>
           </div>
-          <div style="font-size:12px;color:#666;">History & Snapshot — gunakan Undo/Redo untuk kembali ke keadaan sebelumnya</div>
         </div>
-        <div id="historyPanel" style="margin-top:8px; display:block; max-height:260px; overflow:auto; padding:6px; background:#fafafa; border-radius:6px; border:1px solid #eee;">
+        <div style="flex:2;">
+          <label>Filter Tag / Keyword:</label>
+          <div style="display:flex; gap:5px;">
+            <input type="text" id="tagFilter" placeholder="Cari tag, judul, atau link...">
+            <button id="applyTableFilterBtn" class="btn-secondary">Cari</button>
+            <button onclick="resetTagCloud()" class="btn-flat" title="Reset Filters">↻</button>
           </div>
-      `;
-      target.appendChild(panel);
-
-      // wire basic buttons
-      document.getElementById('btn-undo')?.addEventListener('click', function(){ if (typeof window.undo === 'function') window.undo(); });
-      document.getElementById('btn-redo')?.addEventListener('click', function(){ if (typeof window.redo === 'function') window.redo(); });
-      document.getElementById('btn-save-snap')?.addEventListener('click', function(){ if (typeof window.pushHistory === 'function') window.pushHistory('manual'); });
-      document.getElementById('btn-clear-history')?.addEventListener('click', function(){
-        if (!confirm('Clear seluruh history undo/redo?')) return;
-        window._undoStack = [];
-        window._redoStack = [];
-        window._historyMeta = [];
-        updateHistoryPanel();
-        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
-      });
-    } catch(e){ console.error('createHistoryPanelIfMissing', e); }
-  }
-
-  function formatIsoShort(iso) {
-    if (!iso) return '-';
-    try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
-  }
-
-  // Render the history panel listing undo stack (chronological) and redo stack
-  function updateHistoryPanel() {
-    try {      
-      const container = document.getElementById('historyPanel');
-      // Jika container tidak ada, panggil fungsi pembuatnya sekali.
-      if (!container) { createHistoryPanelIfMissing(); return; }
-      container.innerHTML = '';
-      const undo = Array.isArray(window._undoStack) ? window._undoStack : [];
-      const meta = Array.isArray(window._historyMeta) ? window._historyMeta : [];
-
-      const month = document.getElementById('monthFilter')?.value || 'all';
-
-      const makeEntry = (snap, idx, side) => {
-        const totals = window._computeTotalsOnSnapshot ? window._computeTotalsOnSnapshot(snap, month) : { posts:0, reach:0, impressions:0 };
-        const entry = document.createElement('div');
-        entry.style.display = 'flex';
-        entry.style.alignItems = 'center';
-        entry.style.justifyContent = 'space-between';
-        entry.style.padding = '6px';
-        entry.style.borderBottom = '1px dashed #eee';
-        entry.innerHTML = `
-          <div style="display:flex;gap:8px;align-items:center;">
-            <div style="font-size:12px;color:#333;"><strong>${side === 'undo' ? 'U' : 'R'}#${idx}</strong></div>
-            <div style="font-size:12px;color:#666;">${formatIsoShort(meta[idx]?.ts || meta[idx]?.time || meta[idx]?.timestamp || meta[idx]?.ts || new Date().toISOString())}</div>
-            <div style="font-size:12px;color:#444;margin-left:8px;">Posts:${totals.posts} Reach:${totals.reach} Impr:${totals.impressions}</div>
+        </div>
+        <div style="flex:1;">
+          <label>Sort By:</label>
+          <div style="display:flex; gap:5px;">
+            <select id="sortField">
+              <option value="date">Tanggal</option>
+              <option value="rank" title="Pilih untuk mengurutkan berdasarkan peringkat (rank)">Rank</option>
+              <option value="engagement" title="(Likes+Comments+Shares+Saves) ÷ Reach × 100%">Engagement Rate</option>
+              <option value="reach" title="Jumlah Views">Views</option>
+              <option value="likes" title="Jumlah orang yang Like post">Likes</option>
+              <option value="comments" title="Jumlah komentar">Comments</option>
+              <option value="shares" title="Berapa kali post dibagikan">Shares</option>
+              <option value="saves" title="Berapa kali post disimpan/bookmark">Saves</option>
+              <option value="follows" title="Jumlah follow baru dari post ini">Follows</option>
+              <option value="profileVisits" title="Berapa kali profil dikunjungi">Profile Views</option>
+            </select>
+            <select id="sortDir">
+              <option value="none">Desc (Date)</option>
+              <option value="highest">Highest</option>
+              <option value="lowest">Lowest</option>
+            </select>
           </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn-restore" data-side="${side}" data-idx="${idx}">Restore</button>
-            <button class="btn-inspect" data-side="${side}" data-idx="${idx}">Inspect</button>
+        </div>
+      </div>
+
+      <div id="tagCloud"
+        style="margin:10px 0; padding:10px; border:1px dashed #e0e0e0; border-radius:6px; max-height:100px; overflow-y:auto;">
+        <!-- Tags render here -->
+      </div>
+
+      <div style="margin:15px 0; display:flex; gap:10px; align-items:center;">
+
+        <button class="btn-primary" onclick="regenerateAllTags()"
+          title="Scan logic to find hashtags in all captions and update tags">✨ Auto-Tag All</button>
+
+        <div style="flex:1; display:flex; gap:20px; align-items:center; font-size:13px;">
+          <div>Total Reach (Selected Month): <strong id="monthlyReachTotal">0</strong></div>
+          <input type="checkbox" id="compactToggle"> <label for="compactToggle">Compact View</label>
+          <input type="number" id="compactLimit" value="10" style="width:50px; padding:2px;"> items
+        </div>
+
+        <!-- Delete month button floated to the right -->
+        <button id="deleteMonthBtn" class="btn-danger btn-small" title="Hapus semua data bulan terpilih"
+          onclick="deletePostsByMonth()">✕</button>
+      </div>
+
+      <div class="table-responsive" style="margin-top:15px; overflow-x:auto; width:100%;">
+        <table id="dataTable" style="width:100%;">
+          <thead>
+            <tr>
+              <th width="100">Tanggal</th>
+              <th>Detail Post</th>
+              <th width="70" title="Views = Total tayangan video">Views</th>
+              <th width="60" title="Likes = Jumlah Suka">Likes</th>
+              <th width="60" title="Comments = Jumlah komentar">Comm</th>
+              <th width="60" title="Shares = Jumlah bagikan">Shares</th>
+              <th width="60" title="Saves = Jumlah disimpan">Saves</th>
+              <th width="70" title="Engagement Rate = (Likes+Comments+Shares+Saves) ÷ Views × 100%">Eng%</th>
+              <th width="140">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Rows render here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal-overlay">
+    <div class="modal-content">
+      <div
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+        <h3 style="margin:0;">Edit Data Postingan</h3>
+        <button class="btn-flat" onclick="closeEditModal()" style="font-size:20px; padding:0 8px;">&times;</button>
+      </div>
+
+      <input type="hidden" id="editToken">
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+        <div><label style="font-weight:600; font-size:12px; color:#555;">Tanggal</label><input type="date" id="editDate"
+            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;"></div>
+        <div><label style="font-weight:600; font-size:12px; color:#555;">Title</label><input type="text" id="editTitle"
+            style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;"></div>
+      </div>
+
+      <!-- Paste area in modal for quick update -->
+      <div style="margin-bottom:20px; padding:10px; background:#f8f9fa; border:1px dashed #ccc; border-radius:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-size:12px; font-weight:600; color:#666;">Quick Update from Extension (Paste
+            JSON/Text):</label>
+          <button class="btn-small btn-primary" onclick="importFromExtension('edit')">Isi Form Otomatis</button>
+        </div>
+        <textarea id="editExtensionDataPaste" rows="2"
+          style="width:100%; border:1px solid #ddd; border-radius:4px; margin-top:5px; padding:5px; font-size:12px; font-family:monospace;"
+          placeholder="Paste data here..."></textarea>
+      </div>
+
+      <div style="background:#fff; border:1px solid #eee; border-radius:8px; padding:15px; margin-bottom:15px;">
+        <h4
+          style="margin-top:0; margin-bottom:10px; font-size:14px; color:#333; border-bottom:1px solid #f0f0f0; padding-bottom:5px;">
+          Detail Metrik</h4>
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;">
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Views</label><input
+              type="number" id="editReach" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
           </div>
-        `;
-        return entry;
-      };
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Likes</label><input
+              type="number" id="editLikes" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Comments</label><input
+              type="number" id="editComments"
+              style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;"></div>
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Shares</label><input
+              type="number" id="editShares" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Saves</label><input
+              type="number" id="editSaves" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Profile
+              Views</label><input type="number" id="editProfileVisits"
+              style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+          <div><label style="display:block; font-size:11px; color:#777; margin-bottom:2px;">Follows</label><input
+              type="number" id="editFollows" style="width:100%; padding:6px; border:1px solid #ddd; border-radius:4px;">
+          </div>
+        </div>
+        <div id="editEngagementRate"
+          style="margin-top:12px; padding:8px; background:#e8f5e9; color:#2e7d32; border-radius:4px; text-align:center; font-weight:600; font-size:13px;">
+          Engagement Rate: 0.0%
+        </div>
+      </div>
 
-      const uWrap = document.createElement('div');
-      uWrap.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Undo Stack (${undo.length})</div>`;
-      if (!undo.length) {
-        const n = document.createElement('div'); n.className='muted'; n.textContent = 'Tidak ada entry'; uWrap.appendChild(n);
-      } else {
-        // show last 30 entries most-recent-first for usability but allow restore by index
-        for (let i = undo.length - 1; i >= 0; i--) {
-          const entry = makeEntry(undo[i], i, 'undo');
-          uWrap.appendChild(entry);
-        }
-      }
-      container.appendChild(uWrap);
+      <div style="margin-top:15px; margin-bottom:15px;">
+        <label style="font-weight:600; font-size:12px; color:#555;">Notes / Caption:</label>
+        <textarea id="editContentNotes" rows="3"
+          style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-family:inherit;"></textarea>
+      </div>
 
-      const redo = Array.isArray(window._redoStack) ? window._redoStack : [];
-      const rWrap = document.createElement('div');
-      rWrap.style.marginTop = '8px';
-      rWrap.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Redo Stack (${redo.length})</div>`;
-      if (!redo.length) {
-        const n = document.createElement('div'); n.className='muted'; n.textContent = 'Tidak ada entry'; rWrap.appendChild(n);
-      } else {
-        for (let i = 0; i < redo.length; i++) {
-          // redo indices map to positions after undoStack length
-          const metaIdx = (undo.length + i);
-          const entry = makeEntry(redo[i], metaIdx, 'redo');
-          rWrap.appendChild(entry);
-        }
-      }
-      container.appendChild(rWrap);
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+        <div><label style="font-weight:600; font-size:12px; color:#555;">Tags</label><input type="text"
+            id="editContentTag" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;"></div>
+        <div><label style="font-weight:600; font-size:12px; color:#555;">Link Post</label><input type="text"
+            id="editLink" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;"></div>
+      </div>
 
-      // wire buttons
-      container.querySelectorAll('.btn-restore').forEach(btn => {
-        btn.addEventListener('click', function(){
-          const side = this.getAttribute('data-side');
-          const idx = parseInt(this.getAttribute('data-idx'),10);
-          if (side === 'undo') {
-            // restore the chosen undo snapshot: set undo stack top to that index
-            if (isNaN(idx)) return;
-            // Move newest snapshots into redo stack until top is idx
-            // This logic is complex and prone to error. A simpler approach is to just undo until we reach the desired state.
-            // For now, let's just implement a basic restore. A full undo-to-index is a feature enhancement.
-            const toRestore = window._undoStack[idx];
-            if (toRestore && confirm(`Mengembalikan ke snapshot #${idx}? Perubahan saat ini akan masuk ke redo stack.`)) {
-                // To restore to a specific point, we effectively "undo" multiple times.
-                const stepsToUndo = (window._undoStack.length - 1) - idx;
-                if (stepsToUndo > 0) {
-                    for (let i = 0; i < stepsToUndo; i++) {
-                        const last = window._undoStack.pop();
-                        window._redoStack.unshift(last);
-                    }
-                }
-                restoreSnapshot(window._undoStack[window._undoStack.length - 1]);
-            }
-          } else {
-            const redoIdxRelative = idx - (window._undoStack.length);
-            if (redoIdxRelative < 0 || redoIdxRelative >= window._redoStack.length) return;
-            // shift redo items from front until we reach target
-            for (let i = 0; i <= redoIdxRelative; i++) {
-              const s = window._redoStack.shift();
-              window._undoStack.push(s);
-            }
-            const toRestore = window._undoStack[window._undoStack.length - 1];
-            if (toRestore) {
-              restoreSnapshot(toRestore);
-              // restoreSnapshot sudah memanggil updateHistoryPanel
-            }
-          }
-        });
-      });
-      container.querySelectorAll('.btn-inspect').forEach(btn => {
-        btn.addEventListener('click', function(){
-          const side = this.getAttribute('data-side');
-          const idx = parseInt(this.getAttribute('data-idx'),10);
-          let snap = null;
-          if (side === 'undo') snap = window._undoStack[idx];
-          else {
-            const redoIdxRelative = idx - (window._undoStack.length);
-            snap = window._redoStack[redoIdxRelative];
-          }
-          const w = window.open('', '_blank');
-          if (!w) return alert('Tidak dapat membuka jendela inspeksi (popup diblokir?)');
-          w.document.title = 'Snapshot Inspect';
-          w.document.body.style.fontFamily = 'monospace, monospace';
-          w.document.body.innerHTML = '<pre>' + escapeHtml(JSON.stringify(snap, null, 2)) + '</pre>';
-        });
-      });
+      <div
+        style="margin-top:25px; padding-top:15px; border-top:1px solid #eee; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn-secondary" onclick="closeEditModal()">Batal</button>
+        <button class="btn-primary" onclick="saveEditData()">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
 
-    } catch(e){ console.error('updateHistoryPanel', e); }
-  }
+  <script src="script.js"></script>
 
-  // safe escape HTML for inspect viewer
-  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(m){ return ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[m]; }); }
+  <!-- ======= Floating Extension Download FAB ======= -->
+  <button class="ext-fab" onclick="document.getElementById('extModal').classList.add('open')">
+    🧩
+  </button>
 
-  // core history/undo/redo implementation
-  (function historyCore(){
-    window._undoStack = window._undoStack || [];
-    window._redoStack = window._redoStack || [];
-    window._historyMeta = window._historyMeta || [];
-    const maxHistory = 60;
+  <!-- Extension Modal -->
+  <div id="extModal" onclick="if(event.target===this) this.classList.remove('open')">
+    <div class="ext-modal-card">
+      <div class="ext-modal-header">
+        <h2>🧩 Insight Scraper Extension</h2>
+        <button class="ext-modal-close"
+          onclick="document.getElementById('extModal').classList.remove('open')">✕</button>
+      </div>
+      <div class="ext-modal-body">
+        <p style="color:#555; font-size:13.5px; margin-top:0;">Ekstensi browser yang membantu mengambil data insight
+          dari postingan secara otomatis — tanpa perlu input manual satu per satu.</p>
 
-    function deepClone(obj){
-      try { return (typeof structuredClone === 'function') ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)); }
-      catch(e){ return JSON.parse(JSON.stringify(obj)); }
+        <!-- Download Button (Chrome Only) -->
+        <a class="ext-download-btn chrome" href="https://example.com/download/extension-v2.zip" target="_blank">
+          ⬇️ Download Ekstensi (Chrome)
+        </a>
+
+        <!-- Install Steps -->
+        <div style="background:#f8f9fa; border-radius:8px; padding:14px; margin-bottom:16px; border:1px solid #e0e0e0;">
+          <strong style="font-size:13px; color:#333;">⚙️ Cara Install di Chrome</strong>
+          <ol class="ext-steps" style="margin-top:10px;">
+            <li>Download file ZIP di atas, lalu <strong>ekstrak</strong> ke folder di komputer Anda.</li>
+            <li>Buka Chrome, ketik <code
+                style="background:#eee;padding:1px 5px;border-radius:3px;">chrome://extensions</code> di address bar,
+              lalu tekan Enter.</li>
+            <li>Aktifkan <strong>Developer Mode</strong> (toggle di pojok kanan atas).</li>
+            <li>Klik tombol <strong>"Load unpacked"</strong>, lalu pilih folder hasil ekstrak tadi.</li>
+            <li>Ekstensi 🧩 akan muncul di toolbar Chrome. Selesai!</li>
+          </ol>
+        </div>
+
+        <div class="ext-platform-tabs">
+          <button class="ext-tab-btn active" onclick="extSwitchTab(this,'tab-ig')">📸 Instagram</button>
+          <button class="ext-tab-btn" onclick="extSwitchTab(this,'tab-tt')">🎵 TikTok</button>
+          <button class="ext-tab-btn" onclick="extSwitchTab(this,'tab-li')">💼 LinkedIn</button>
+        </div>
+
+        <div id="tab-ig" class="ext-tab-panel active">
+          <ol class="ext-steps">
+            <li>Buka <strong>Instagram</strong> di Chrome (instagram.com), lalu buka salah satu postingan Anda.</li>
+            <li>Klik <strong>"View Insights"</strong> pada postingan.</li>
+            <li>Klik ikon ekstensi 🧩 di toolbar Chrome → klik <strong>"Scrape Insights"</strong>.</li>
+            <li>Data tersalin otomatis ke clipboard. Kembali ke dashboard Instagram.</li>
+            <li>Paste di bagian <strong>"Import Otomatis"</strong> → klik <strong>"Isi Formulir Otomatis"</strong> →
+              Simpan.</li>
+          </ol>
+        </div>
+        <div id="tab-tt" class="ext-tab-panel">
+          <ol class="ext-steps">
+            <li>Buka <strong>TikTok Studio</strong> (studio.tiktok.com) di Chrome.</li>
+            <li>Masuk ke tab <strong>Analytics → Content</strong>, klik salah satu postingan untuk melihat detailnya.
+            </li>
+            <li>Klik ikon ekstensi 🧩 → klik <strong>"Scrape Insights"</strong>.</li>
+            <li>Paste data ke bagian <strong>"Import Otomatis"</strong> di dashboard ini → klik <strong>"Isi Formulir
+                Otomatis"</strong> → Simpan.</li>
+            <li><em>Atau:</em> gunakan fitur <strong>"Import CSV/Excel"</strong> untuk import banyak postingan
+              sekaligus.</li>
+          </ol>
+        </div>
+        <div id="tab-li" class="ext-tab-panel">
+          <ol class="ext-steps">
+            <li>Buka <strong>LinkedIn</strong> di Chrome, lalu buka halaman analytics postingan Anda.</li>
+            <li>Untuk <strong>1 postingan</strong>: klik ikon ekstensi 🧩 → pilih <strong>"Scrape Insights"</strong>.
+            </li>
+            <li>Untuk <strong>banyak postingan sekaligus</strong>: buka tabel analytics LinkedIn → klik ikon ekstensi →
+              pilih <strong>"Bulk Scrape Table"</strong>.</li>
+            <li>Paste data ke bagian <strong>"Import Otomatis"</strong> di dashboard LinkedIn → klik <strong>"Isi
+                Formulir Otomatis"</strong> → Simpan.</li>
+          </ol>
+        </div>
+
+        <p style="text-align:center; font-size:11px; color:#bbb; margin-top:14px;">Versi 2.0 · Hanya tersedia untuk
+          Google Chrome</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function extSwitchTab(btn, panelId) {
+      document.querySelectorAll('.ext-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.ext-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(panelId).classList.add('active');
     }
+  </script>
 
-    // restore snapshot (full replace)
-    window.restoreSnapshot = function(snap){
-      try {
-        if (!snap) return;
-        window.dataStore = deepClone(snap);
-        // ensure normalized structures and UI refresh
-        if (typeof normalizePostsStructure === 'function') normalizePostsStructure();
-        if (typeof generateMonthOptions === 'function') generateMonthOptions();
-        if (typeof generateProfileMonthOptions === 'function') generateProfileMonthOptions();
-        if (typeof renderProfileInputs === 'function') renderProfileInputs();
-        if (typeof renderUsernameAreas === 'function') renderUsernameAreas();
-        if (typeof renderTableFiltered === 'function') renderTableFiltered();
-        if (typeof renderTagCloud === 'function') renderTagCloud();
-        if (typeof updateMonthlyReachDisplay === 'function') updateMonthlyReachDisplay();
-        if (typeof updateMonthlyImpressionsDisplay === 'function') updateMonthlyImpressionsDisplay();
-        // re-render posts list for currently selected date
-        const curDate = document.getElementById('dateInput')?.value;
-        if (curDate && typeof renderPostItemsForDate === 'function') renderPostItemsForDate(curDate);
-        // update global visuals
-        if (typeof updateStatsUI === 'function') updateStatsUI();
-        if (typeof updateHistoryPanel === 'function') updateHistoryPanel();
-        if (typeof showSaveNotification === 'function') showSaveNotification('Snapshot diterapkan');
-      } catch(e){ console.error('restoreSnapshot', e); }
-    };
-
-    // push a new snapshot (should be called after mutation)
-    window.pushHistory = function(label){
-      try {
-        const snap = deepClone(window.dataStore || {});
-        // if nothing in undo or last snapshot is different, push
-        const last = window._undoStack.length ? window._undoStack[window._undoStack.length - 1] : null;
-        const lastStr = last ? JSON.stringify(last) : null;
-        const curStr = JSON.stringify(snap);
-        if (lastStr === curStr && window._undoStack.length) {
-          // identical to last snapshot -> update timestamp instead
-          window._historyMeta[window._historyMeta.length - 1] = { ts: new Date().toISOString(), label: label || 'auto' };
-        } else {
-          window._undoStack.push(snap);
-          window._historyMeta.push({ ts: new Date().toISOString(), label: label || 'auto' });
-          // trim if exceed max
-          while (window._undoStack.length > maxHistory) {
-            window._undoStack.shift();
-            window._historyMeta.shift();
-          }
-          // clear redo on new push
-          window._redoStack = [];
-        }
-        updateHistoryPanel();
-        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
-      } catch(e){ console.error('pushHistory', e); }
-    };
-
-    // undo: move last snapshot to redo and restore previous
-    window.undo = function(){
-      try {
-        if (!window._undoStack || window._undoStack.length < 2) { alert('Tidak ada yang dapat di-undo'); return; }
-        const last = window._undoStack.pop();
-        const lastMeta = window._historyMeta.pop();
-        window._redoStack.unshift(last);
-        // Note: we keep a mirror of meta for redo as well (put meta at front)
-        window._redoMeta = window._redoMeta || [];
-        window._redoMeta.unshift(lastMeta);
-        const toRestore = window._undoStack[window._undoStack.length - 1];
-        restoreSnapshot(toRestore);
-        updateHistoryPanel();
-        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
-      } catch(e){ console.error('undo', e); alert('Undo gagal'); }
-    };
-
-    // redo: take first redo snapshot and apply it (push to undo)
-    window.redo = function(){
-      try {
-        if (!window._redoStack || window._redoStack.length === 0) { alert('Tidak ada yang dapat di-redo'); return; }
-        const snap = window._redoStack.shift();
-        const meta = (window._redoMeta && window._redoMeta.length) ? window._redoMeta.shift() : { ts: new Date().toISOString(), label: 'redo' };
-        window._undoStack.push(snap);
-        window._historyMeta.push(meta);
-        restoreSnapshot(snap);
-        updateHistoryPanel();
-        try { if (typeof updateUndoRedoButtons === 'function') updateUndoRedoButtons(); } catch(e){}
-      } catch(e){ console.error('redo', e); alert('Redo gagal'); }
-    };
-
-    // clear history helper
-    window.clearHistory = function(){
-      window._undoStack = [];
-      window._redoStack = [];
-      window._historyMeta = [];
-      updateHistoryPanel();
-    };
-
-    // expose for debug
-    window._deepClone = deepClone;
-
-  })();
-
-  // --- Wrap pushHistory to record timestamps in parallel array (legacy compatibility removed) ---
-  (function wrapPushHistory(){
-    try {
-      // ensure initial baseline exists
-      if (!Array.isArray(window._undoStack) || window._undoStack.length === 0) {
-        try { window.pushHistory('initial'); } catch(e){}
-      }
-    } catch(e){ console.error('wrapPushHistory', e); }
-  })();
-
-  // --- Wrap undo/redo to refresh panel after operation --- (already wired to functions above)
-  (function wrapUndoRedo(){
-    try {
-      // UI buttons are already wired in createHistoryPanelIfMissing
-      // ensure updateHistoryPanel runs when undo/redo called (already inside functions)
-    } catch(e){ console.error('wrapUndoRedo', e); }
-  })();
-
-  // --- Wrap mutator functions to refresh stats & history panel after they run ---
-  (function wrapMutators(){
-    const names = ['saveData','addPostItem','deleteData','deletePostItem','loadJson','saveProfileSnapshot','deleteProfileSnapshot'];
-    names.forEach(n => {
-      try {
-        const orig = window[n];
-        if (typeof orig === 'function') {
-          window[n] = function(...args){
-            // call original
-            const res = orig.apply(this, args);
-            try {
-              // push history snapshot after mutation; use a short timeout to ensure any DOM reads are settled
-              setTimeout(function(){ try { window.pushHistory(n); } catch(e){ console.error('pushHistory after ' + n, e); } }, 10);
-            } catch(e){ console.error('after wrap ' + n, e); }
-            return res;
-          };
-        }
-      } catch(e){ /* ignore */ }
-    });
-  })();
-  
-  // ensure history UI created and initial snapshot present on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', function(){
-  try {
-    createHistoryPanelIfMissing();
-    if (!window._undoStack || window._undoStack.length === 0) window.pushHistory('initial');
-    updateHistoryPanel();
-    updateStatsUI();
-    // update when monthFilter changed
-    document.getElementById('monthFilter')?.addEventListener('change', function(){ updateStatsUI(); updateHistoryPanel(); });
-
-    // keyboard shortcuts for undo/redo:
-    // - Ctrl/Cmd+Z => undo
-    // - Ctrl/Cmd+Y OR Ctrl/Cmd+Shift+Z => redo
-    function handleHistoryKeyboard(e){
-      try {
-        const mod = e.ctrlKey || e.metaKey;
-        if (!mod) return;
-        const key = (e.key || '').toLowerCase();
-        if (key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          if (typeof window.undo === 'function') window.undo();
-        } else if ((key === 'z' && e.shiftKey) || key === 'y') {
-          e.preventDefault();
-          if (typeof window.redo === 'function') window.redo();
-        }
-      } catch(err){ console.error('history keyboard handler', err); }
-    }
-    // Attach once to document
-    document.addEventListener('keydown', handleHistoryKeyboard);
-
-  } catch(e){ console.error('history/stats init', e); }
-});
-
-})();
-</script>
-<script>
-(function(){
-  // Add a simple show/hide toggle for the history panel without modifying existing markup.
-  function initHistoryToggle(){
-    try {
-      // ensure panel exists; if creation function is available, try to create if missing
-      if (!document.getElementById('historyPanel')) {
-        if (typeof createHistoryPanelIfMissing === 'function') {
-          try { createHistoryPanelIfMissing(); } catch(e){ /* ignore */ }
-        }
-      }
-
-      const content = document.getElementById('historyPanel');
-      const wrap = document.getElementById('historyPanelWrap') || document.getElementById('historyPanel')?.parentElement;
-      if (!wrap || !content) return;
-
-      // find header area (first child with buttons created by createHistoryPanelIfMissing)
-      let header = wrap.querySelector('div');
-      if (!header) header = wrap;
-
-      // avoid adding duplicate toggle
-      if (document.getElementById('historyPanelToggle')) return;
-
-      const btn = document.createElement('button');
-      btn.id = 'historyPanelToggle';
-      btn.type = 'button';
-      btn.style.marginLeft = '8px';
-      btn.style.padding = '6px 10px';
-      btn.style.borderRadius = '6px';
-      btn.style.border = '1px solid #ccc';
-      btn.style.background = '#375a7c';
-      btn.style.cursor = 'pointer';
-      btn.style.fontSize = '13px';
-
-      // initial state from localStorage (default: visible)
-      const saved = localStorage.getItem('historyPanelVisible');
-      let visible = saved === null ? true : (saved === 'true');
-
-      function applyState(){
-        content.style.display = visible ? 'block' : 'none';
-        btn.textContent = visible ? 'Hide History' : 'Show History';
-        btn.setAttribute('aria-expanded', String(visible));
-        localStorage.setItem('historyPanelVisible', String(visible));
-        // when showing, refresh contents
-        if (visible && typeof updateHistoryPanel === 'function') {
-          try { updateHistoryPanel(); } catch(e){/* ignore */ }
-        }
-      }
-
-      btn.addEventListener('click', function(){
-        visible = !visible;
-        applyState();
-      });
-
-      // insert button into header; try to place at start of header controls
-      // if header contains a control container, append; otherwise append to header
-      try {
-        const controls = header.querySelector('div');
-        if (controls && controls.parentElement === header) {
-          // place toggle into the left controls group (if exists)
-          controls.appendChild(btn);
-        } else {
-          header.appendChild(btn);
-        }
-      } catch(e){
-        header.appendChild(btn);
-      }
-
-      applyState();
-    } catch(err){
-      // fail silently
-      console.error('history toggle init error', err);
-    }
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initHistoryToggle);
-  else initHistoryToggle();
-})();
-</script>
+  <footer id="siteFooter" style="text-align:center; padding:12px 10px; color:#777; font-size:13px;">
+    © 2025 Arghi M.s. All rights reserved.
+  </footer>
 </body>
+
 </html>

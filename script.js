@@ -781,45 +781,119 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
         const selectedKeys = Array.from(document.querySelectorAll('#chartMetricsSelector .metric-toggle.active')).map(el => el.dataset.key);
         if (selectedKeys.length === 0) return; // No metric selected
 
-        // 4. Flatten Data (One Post = One Point)
-        // We will build parallel arrays for the Chart.js data
-        const chartLabels = []; // X-axis labels (Date)
-        const chartMeta = []; // Meta data for click/tooltip (Title, Link, Full Item)
+        // Get grouping
+        const grouping = document.getElementById('chartGrouping') ? document.getElementById('chartGrouping').value : 'post';
 
-        // Prepare arrays for each selected metric
-        const metricData = {};
+        // 4. Group & Flatten Data
+        let chartLabels = []; // X-axis labels
+        let chartMeta = [];   // Meta data for click/tooltip
+        const metricData = {};// Arrays for each selected metric
+
         selectedKeys.forEach(k => metricData[k] = []);
 
-        filteredDates.forEach(date => {
-            const p = dataStore.posts[date];
-            const items = Array.isArray(p._items) ? p._items : [];
+        if (grouping === 'post') {
+            // Original behavior: One point per post
+            filteredDates.forEach(date => {
+                const p = dataStore.posts[date];
+                const items = Array.isArray(p._items) ? p._items : [];
+                items.forEach((item, idx) => {
+                    chartLabels.push(date);
+                    chartMeta.push({
+                        date: date,
+                        title: item.title || item.caption || `Post #${idx + 1}`,
+                        link: item.link,
+                        obj: item,
+                        type: 'post'
+                    });
 
-            items.forEach((item, idx) => {
-                // Add label
-                chartLabels.push(date);
-
-                // Add Meta
-                chartMeta.push({
-                    date: date,
-                    title: item.title || item.caption || `Post #${idx + 1}`,
-                    link: item.link,
-                    obj: item
-                });
-
-                // Add Values
-                selectedKeys.forEach(k => {
-                    let val = 0;
-                    if (k === 'engagement') {
-                        const r = +item.reach || 0;
-                        const inter = (item.likes || 0) + (item.comments || 0) + (item.shares || 0) + (item.saves || 0);
-                        val = r > 0 ? (inter / r * 100) : 0;
-                    } else {
-                        val = (+item[k] || 0);
-                    }
-                    metricData[k].push(val);
+                    selectedKeys.forEach(k => {
+                        let val = 0;
+                        if (k === 'engagement') {
+                            const r = +(item.reach || item.views || 0); // fallback views if reach empty
+                            const inter = (+item.likes || 0) + (+item.comments || 0) + (+item.shares || 0) + (+item.saves || 0);
+                            val = r > 0 ? (inter / r * 100) : 0;
+                        } else {
+                            val = (+item[k] || 0);
+                        }
+                        metricData[k].push(val);
+                    });
                 });
             });
-        });
+        } else {
+            // Aggregated behavior (day, week, month, year)
+            const groupedAgg = {};
+
+            function getGroupKey(dateStr) {
+                if (grouping === 'day') return dateStr;
+                if (grouping === 'month') return dateStr.substring(0, 7);
+                if (grouping === 'year') return dateStr.substring(0, 4);
+                if (grouping === 'week') {
+                    const d = new Date(dateStr);
+                    const start = new Date(d.getFullYear(), 0, 1);
+                    const days = Math.floor((d - start) / (24 * 60 * 60 * 1000));
+                    const weekNum = Math.ceil((days + start.getDay() + 1) / 7);
+                    return d.getFullYear() + '-W' + String(weekNum).padStart(2, '0');
+                }
+                return dateStr;
+            }
+
+            filteredDates.forEach(date => {
+                const p = dataStore.posts[date];
+                const items = Array.isArray(p._items) ? p._items : [];
+
+                items.forEach((item) => {
+                    const gKey = getGroupKey(date);
+                    if (!groupedAgg[gKey]) {
+                        groupedAgg[gKey] = {
+                            count: 0,
+                            sums: {},
+                            reachSum: 0,
+                            interactionsSum: 0,
+                            dates: new Set()
+                        };
+                        selectedKeys.forEach(k => groupedAgg[gKey].sums[k] = 0);
+                    }
+
+                    groupedAgg[gKey].count++;
+                    groupedAgg[gKey].dates.add(date);
+
+                    // Pre-calculate sums for engagement
+                    const r = +(item.reach || item.views || 0);
+                    const inter = (+item.likes || 0) + (+item.comments || 0) + (+item.shares || 0) + (+item.saves || 0);
+                    groupedAgg[gKey].reachSum += r;
+                    groupedAgg[gKey].interactionsSum += inter;
+
+                    selectedKeys.forEach(k => {
+                        if (k !== 'engagement') {
+                            groupedAgg[gKey].sums[k] += (+item[k] || 0);
+                        }
+                    });
+                });
+            });
+
+            // Convert aggregated object to sorted arrays
+            const sortedKeys = Object.keys(groupedAgg).sort();
+            sortedKeys.forEach(gKey => {
+                const group = groupedAgg[gKey];
+                chartLabels.push(gKey);
+                chartMeta.push({
+                    date: gKey,
+                    title: `${group.count} Post${group.count > 1 ? 's' : ''}`,
+                    type: 'group',
+                    link: null
+                });
+
+                selectedKeys.forEach(k => {
+                    if (k === 'engagement') {
+                        // Global engagement for the group: total interactions / total reach
+                        const val = group.reachSum > 0 ? (group.interactionsSum / group.reachSum * 100) : 0;
+                        metricData[k].push(val);
+                    } else {
+                        metricData[k].push(group.sums[k]);
+                    }
+                });
+            });
+        }
 
         // 5. Build Datasets with Canvas Gradients
         // Helper: hex to rgba
@@ -1270,7 +1344,10 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 rows.forEach(row => {
                     // Cari field matching terlepas case sensitivity jika mungkin ada update dari TikTok
                     const getCol = (keyMatch) => {
-                        const key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+                        let key = Object.keys(row).find(k => k.trim().toLowerCase() === keyMatch.toLowerCase());
+                        if (!key) {
+                            key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+                        }
                         return key ? row[key] : "";
                     };
 
@@ -1337,6 +1414,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                     if (typeof updateStatsUI === 'function') updateStatsUI();
 
                     try { window.pushHistory(`Bulk Auto-Imported ${importedCount} TikTok posts via CSV`); } catch (e) { }
+                    try { renderAdvancedChart(); } catch (e) { }
 
                     alert(`✅ Berhasil import ${importedCount} postingan dari TikTok Studio!`);
                     fileInput.value = ""; // Reset input
@@ -1375,7 +1453,10 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
 
             rows.forEach(row => {
                 const getCol = (keyMatch) => {
-                    const key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+                    let key = Object.keys(row).find(k => k.trim().toLowerCase() === keyMatch.toLowerCase());
+                    if (!key) {
+                        key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+                    }
                     return key ? row[key] : "";
                 };
 
@@ -1460,6 +1541,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
                 if (typeof updateStatsUI === 'function') updateStatsUI();
 
                 try { window.pushHistory(`Bulk Auto-Imported ${importedCount} Instagram posts via CSV`); } catch (e) { }
+                try { renderAdvancedChart(); } catch (e) { }
 
                 alert(`✅ Berhasil import ${importedCount} postingan dari CSV Meta Business Suite!`);
                 fileInput.value = "";
@@ -1864,7 +1946,7 @@ ${metricsCols}
 
         // Ensure new date structure
         if (!dataStore.posts[newDate]) dataStore.posts[newDate] = { _items: [] };
-        if (!Array.isArray(dataStore.posts[newDate]._items)) dataStore.posts[newDate]._items = [];
+        if (!Array.isArray(dataStore.posts[newDate]._items)) window.dataStore.posts[newDate]._items = [];
 
         // Update its edited time and push
         dataToMove.lastEdited = new Date().toISOString();
@@ -2022,6 +2104,7 @@ ${metricsCols}
         if (document.getElementById('dateInput')?.value === date) renderPostItemsForDate(date);
 
         try { window.pushHistory(`Deleted Post ${date}`); } catch (e) { }
+        try { renderAdvancedChart(); } catch (e) { }
     }
     window.deleteData = deleteData;
 

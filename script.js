@@ -1826,7 +1826,7 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
             }
 
             const row = `<tr>
-        <td>${escapeHtml(date)}</td>
+        <td><input type="date" value="${escapeHtml(date)}" onkeydown="if(event.key==='Enter') this.blur()" style="border: 1px solid #ddd; padding: 4px; border-radius: 4px; font-family: inherit; font-size: 13px; max-width: 120px; text-align: center; box-sizing: border-box; cursor: pointer; transition: border-color 0.2s; background: transparent;" onfocus="this.style.borderColor='#1976D2'; this.style.backgroundColor='#fff'" onblur="this.style.borderColor='#ddd'; this.style.backgroundColor='transparent'; inlineUpdateDate('${entry.token}', this.value)"></td>
         <td style="text-align:left; max-width:450px;">${rankStarHtml}${rankBadgeHtml}${sortBadgeHtml}${linkHtml}${meta}</td>
 ${metricsCols}
       </tr>`;
@@ -1839,6 +1839,54 @@ ${metricsCols}
         syncSelectedTagsFromFilter();
     }
     window.renderTableFilteredSorted = renderTableFilteredSorted;
+
+    // Inline Date Editor
+    window.inlineUpdateDate = function (token, newDate) {
+        if (!newDate) return; // if user clears, browsers might return empty string
+        const parts = String(token || '').split('||');
+        const originalDate = parts[0];
+        const idx = parseInt(parts[1], 10);
+
+        if (originalDate === newDate) return; // No change
+
+        if (!dataStore.posts[originalDate] || !dataStore.posts[originalDate]._items[idx]) {
+            console.error("Data tidak ditemukan untuk ", token);
+            return;
+        }
+
+        const dataToMove = dataStore.posts[originalDate]._items[idx];
+
+        // Remove from old date
+        dataStore.posts[originalDate]._items.splice(idx, 1);
+        if (dataStore.posts[originalDate]._items.length === 0) {
+            delete dataStore.posts[originalDate];
+        }
+
+        // Ensure new date structure
+        if (!dataStore.posts[newDate]) dataStore.posts[newDate] = { _items: [] };
+        if (!Array.isArray(dataStore.posts[newDate]._items)) dataStore.posts[newDate]._items = [];
+
+        // Update its edited time and push
+        dataToMove.lastEdited = new Date().toISOString();
+        dataStore.posts[newDate]._items.push(dataToMove);
+
+        // Re-calculate derived structures
+        normalizePostsStructure();
+
+        if (window.persistData) window.persistData();
+        updateGlobalLastEdited();
+
+        // Refresh UI
+        generateMonthOptions();
+        renderTableFilteredSorted();
+        updateMonthlyReachDisplay();
+        updateMonthlyImpressionsDisplay();
+        updateStatsUI();
+        renderTagCloud();
+
+        try { window.pushHistory(`Inline date edited: ${originalDate} -> ${newDate}`); } catch (e) { }
+        showSaveNotification(`Tanggal berhasil diubah ke ${newDate}`);
+    };
 
     function syncSelectedTagsFromFilter() {
         const tfVal = (document.getElementById('tagFilter')?.value || '').trim().toLowerCase();

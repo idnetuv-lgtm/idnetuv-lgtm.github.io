@@ -1,0 +1,1 @@
+const fs = require('fs'); const XLSX = require('xlsx'); const buf = fs.readFileSync('Aug-01-2025_Feb-26-2026_1251842052979826.csv'); const wb = XLSX.read(buf, { type: 'buffer' }); const ws = wb.Sheets[wb.SheetNames[0]]; console.log(JSON.stringify(XLSX.utils.sheet_to_json(ws, { defval: '' }).slice(0,2), null, 2));

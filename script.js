@@ -1354,6 +1354,189 @@ window.dataStore = window.dataStore || { profile: {}, profileSnapshots: {}, post
     }
     window.importTiktokCsv = importTiktokCsv;
 
+    // --- INSTAGRAM CSV/EXCEL IMPORTER ---
+    function importInstagramCsv() {
+        if (typeof XLSX === 'undefined') {
+            alert('Library SheetJS belum dimuat. Periksa koneksi internet.');
+            return;
+        }
+
+        const fileInput = document.getElementById('instagramCsvUpload');
+        const file = fileInput?.files[0];
+        if (!file) {
+            alert('Pilih file CSV/Excel dari Meta Business Suite terlebih dahulu.');
+            return;
+        }
+
+        const reader = new FileReader();
+
+        const processRows = function (rows) {
+            let importedCount = 0;
+
+            rows.forEach(row => {
+                const getCol = (keyMatch) => {
+                    const key = Object.keys(row).find(k => k.toLowerCase().includes(keyMatch.toLowerCase()));
+                    return key ? row[key] : "";
+                };
+
+                const postTimeRaw = getCol("Waktu penerbitan");
+                if (!postTimeRaw) return;
+
+                // Mengurai dari format MM/DD/YYYY HH:mm (contoh: 08/04/2025 00:41)
+                let dateStr = "";
+                try {
+                    let parsedDate;
+                    if (String(postTimeRaw).includes('/')) {
+                        const [datePart] = String(postTimeRaw).split(' ');
+                        if (datePart.includes('/')) {
+                            const split = datePart.split('/');
+                            if (split.length === 3) {
+                                // format: mm/dd/yyyy
+                                const y = parseInt(split[2]);
+                                const m = parseInt(split[0]);
+                                const d = parseInt(split[1]);
+                                parsedDate = new Date(y, m - 1, d);
+                            }
+                        }
+                    } else {
+                        parsedDate = new Date(postTimeRaw);
+                    }
+
+                    if (parsedDate && !isNaN(parsedDate.getTime())) {
+                        const y = parsedDate.getFullYear();
+                        const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(parsedDate.getDate()).padStart(2, '0');
+                        dateStr = `${y}-${m}-${d}`;
+                    }
+                } catch (err) { }
+
+                if (!dateStr) return;
+
+                const desc = getCol("Deskripsi");
+                const link = getCol("Permalink");
+                const type = typeof getCol("Jenis postingan") === 'string' ? getCol("Jenis postingan") : "";
+                const reach = parseInt(getCol("Jangkauan"), 10) || 0;
+                const impressions = parseInt(getCol("Tayangan"), 10) || 0;
+                const likes = parseInt(getCol("Suka"), 10) || 0;
+                const comments = parseInt(getCol("Komentar"), 10) || 0;
+                const shares = parseInt(getCol("Frekuensi dibagikan"), 10) || 0;
+                const saves = parseInt(getCol("Frekuensi Disimpan"), 10) || 0;
+                const follows = parseInt(getCol("Mengikuti"), 10) || 0;
+
+                let title = desc ? desc.substring(0, 30).replace(/\n/g, ' ') : "Instagram Post";
+                if (desc && desc.length > 30) title += "...";
+
+                if (!window.dataStore.posts[dateStr]) window.dataStore.posts[dateStr] = { _items: [] };
+                if (!Array.isArray(window.dataStore.posts[dateStr]._items)) window.dataStore.posts[dateStr]._items = [];
+
+                const newItem = normalizeItem({
+                    title: title,
+                    notes: desc,
+                    link: link,
+                    reach: reach,
+                    impressions: impressions,
+                    likes: likes,
+                    comments: comments,
+                    shares: shares,
+                    saves: saves,
+                    follows: follows,
+                    views: (type.toLowerCase().includes('video') || type.toLowerCase().includes('reel')) ? impressions : 0,
+                    lastEdited: new Date().toISOString()
+                });
+
+                window.dataStore.posts[dateStr]._items.push(newItem);
+                importedCount++;
+            });
+
+            if (importedCount > 0) {
+                normalizePostsStructure();
+                if (typeof generateMonthOptions === 'function') generateMonthOptions();
+                if (typeof window.persistData === 'function') window.persistData();
+
+                if (typeof renderTableFilteredSorted === 'function') renderTableFilteredSorted();
+                else if (typeof renderTableFiltered === 'function') renderTableFiltered();
+
+                if (typeof updateEngagement === 'function') updateEngagement();
+                if (typeof updateStatsUI === 'function') updateStatsUI();
+
+                try { window.pushHistory(`Bulk Auto-Imported ${importedCount} Instagram posts via CSV`); } catch (e) { }
+
+                alert(`✅ Berhasil import ${importedCount} postingan dari CSV Meta Business Suite!`);
+                fileInput.value = "";
+            } else {
+                alert('Tidak ditemukan baris yang valid untuk diproses. Periksa format kolom CSV file Anda.');
+            }
+        };
+
+        reader.onload = function (e) {
+            try {
+                if (file.name.toLowerCase().endsWith('.csv')) {
+                    const text = e.target.result;
+                    const parsed = [];
+                    let currentRow = [];
+                    let currentCell = '';
+                    let inQuotes = false;
+
+                    for (let i = 0; i < text.length; i++) {
+                        const char = text[i];
+                        const nextChar = text[i + 1];
+
+                        if (inQuotes) {
+                            if (char === '"' && nextChar === '"') { currentCell += '"'; i++; }
+                            else if (char === '"') { inQuotes = false; }
+                            else { currentCell += char; }
+                        } else {
+                            if (char === '"') { inQuotes = true; }
+                            else if (char === ',') { currentRow.push(currentCell.trim()); currentCell = ''; }
+                            else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
+                                currentRow.push(currentCell.trim());
+                                parsed.push(currentRow);
+                                currentRow = [];
+                                currentCell = '';
+                                if (char === '\r') i++;
+                            } else { currentCell += char; }
+                        }
+                    }
+                    if (currentCell !== '' || currentRow.length > 0) {
+                        currentRow.push(currentCell.trim());
+                        parsed.push(currentRow);
+                    }
+
+                    if (parsed.length < 2) { alert('File CSV kosong atau format tidak sesuai.'); return; }
+
+                    const headers = parsed[0].map(h => h.replace(/^["']|["']$/g, '').trim());
+                    const jsonRows = [];
+                    for (let i = 1; i < parsed.length; i++) {
+                        if (parsed[i].length <= 1) continue;
+                        let obj = {};
+                        headers.forEach((h, index) => {
+                            obj[h] = parsed[i][index] !== undefined ? parsed[i][index] : "";
+                        });
+                        jsonRows.push(obj);
+                    }
+                    processRows(jsonRows);
+                } else {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    processRows(jsonRows);
+                }
+            } catch (err) {
+                console.error("Kesalahan membaca file:", err);
+                alert('Gagal membaca file. Terjadi kesalahan pada saat parsing data.');
+            }
+        };
+
+        if (file.name.toLowerCase().endsWith('.csv')) {
+            reader.readAsText(file); // HTML5 FileReader decodes charset (UTF-8, UTF-16LE, etc.) correctly avoiding SheetJS BOM bugs
+        } else {
+            reader.readAsArrayBuffer(file);
+        }
+    }
+    window.importInstagramCsv = importInstagramCsv;
+
     // save data (now saves into selected item on selected date)
     function saveData() {
         const date = document.getElementById("dateInput")?.value;

@@ -166,6 +166,23 @@
         </div>
       </div>
 
+      <div style="margin-bottom:20px; padding:15px; background:#e8f5e9; border-radius:8px; border:1px solid #c8e6c9;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0;">1b. Import dari File Meta Business Suite (CSV/Excel)</h4>
+          <span class="insight-badge"
+            title="Cara export: Buka Meta Business Suite -> Content -> Pilih range tanggal -> Export data sebagai CSV."
+            style="cursor:help; background:#fff; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:12px;">ℹ️
+            Cara Penggunaan</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="file" id="instagramCsvUpload" accept=".csv, .xlsx"
+            style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:6px; flex:1;">
+          <button class="btn-primary" onclick="importInstagramCsv()">Upload & Masukkan Database</button>
+        </div>
+        <div class="muted" style="margin-top:5px; font-size:12px;">Data akan langsung tersimpan ke dalam database
+          berdasarkan kolom 'Waktu penerbitan'.</div>
+      </div>
+
       <h4 style="margin-top:0;">2. Edit / Input Manual</h4>
 
       <div class="form-row" style="background:#fff3e0; padding:10px; border-radius:6px; border:1px solid #ffe0b2;">
